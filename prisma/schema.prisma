@@ -30,6 +30,8 @@ model GuildConfig {
   moderationAutoKick         Boolean @default(false)
   moderationAutoBan          Boolean @default(false)
   moderationLogChannelId     String?
+  moderationBannedWords      String[] @default([])
+  moderationWarnPunishments  Json     @default("[]")
   
   // Verification Configuration
   verificationEnabled  Boolean @default(false)
@@ -39,12 +41,19 @@ model GuildConfig {
   verificationMessage  String  @default("Welcome! Click the button below to verify and gain access to the server.")
   verificationEmoji    String  @default("✅")
   verificationButtonText String @default("Verify")
+  verificationAlreadyVerifiedMessage String @default("✅ You are already verified!")
   
   // Welcome Configuration
   welcomeEnabled   Boolean @default(false)
   welcomeChannelId String?
   welcomeMessage   String  @default("Welcome {user} to {server}!")
   welcomeUseEmbed  Boolean @default(true)
+
+  // Goodbye Configuration
+  goodbyeEnabled   Boolean @default(false)
+  goodbyeChannelId String?
+  goodbyeMessage   String  @default("Goodbye {user}, we'll miss you!")
+  goodbyeUseEmbed  Boolean @default(true)
 
   // Whitelist Configuration
   whitelistEnabled Boolean  @default(false)

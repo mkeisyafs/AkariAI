@@ -11,6 +11,11 @@ router.get(
     failureRedirect: process.env.FRONTEND_URL || 'http://localhost:5173',
   }),
   (req, res) => {
+    const botOwnerId = process.env.BOT_OWNER_ID;
+    if (botOwnerId && req.user.id !== botOwnerId) {
+      req.logout(() => {});
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=access_denied`);
+    }
     res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173');
   }
 );

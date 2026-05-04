@@ -20,6 +20,7 @@ export default function VerificationConfigForm({ config, onSave, loading, guildI
     verificationMessage: config.verificationMessage || 'Welcome! Click the button below to verify and gain access to the server.',
     verificationEmoji: config.verificationEmoji || '✅',
     verificationButtonText: config.verificationButtonText || 'Verify',
+    verificationAlreadyVerifiedMessage: config.verificationAlreadyVerifiedMessage || '✅ You are already verified!',
   });
   const [sending, setSending] = useState(false);
 
@@ -32,6 +33,7 @@ export default function VerificationConfigForm({ config, onSave, loading, guildI
       verificationMessage: config.verificationMessage || 'Welcome! Click the button below to verify and gain access to the server.',
       verificationEmoji: config.verificationEmoji || '✅',
       verificationButtonText: config.verificationButtonText || 'Verify',
+      verificationAlreadyVerifiedMessage: config.verificationAlreadyVerifiedMessage || '✅ You are already verified!',
     });
   }, [config]);
 
@@ -203,6 +205,22 @@ export default function VerificationConfigForm({ config, onSave, loading, guildI
           </p>
         </div>
       )}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Already Verified Message
+        </label>
+        <input
+          type="text"
+          value={formData.verificationAlreadyVerifiedMessage}
+          onChange={(e) => setFormData({ ...formData, verificationAlreadyVerifiedMessage: e.target.value })}
+          className="w-full px-4 py-2 bg-discord-dark border border-gray-700 rounded-lg text-white focus:outline-none focus:border-discord-blurple"
+          placeholder="✅ You are already verified!"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Message shown when a user who is already verified clicks the verify button
+        </p>
+      </div>
 
       <div className="bg-discord-dark rounded-lg p-4 border border-gray-700">
         <h4 className="text-white font-medium mb-2 flex items-center space-x-2">

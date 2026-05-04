@@ -105,7 +105,7 @@ export default function GuildConfig() {
           <ModerationConfigForm config={config} onSave={updateConfig} loading={loading} />
         )}
         {activeTab === 'welcome' && (
-          <WelcomeConfigForm config={config} onSave={updateConfig} loading={loading} />
+          <WelcomeConfigForm config={config} onSave={updateConfig} loading={loading} guildId={guildId || ''} />
         )}
         {activeTab === 'verification' && (
           <VerificationConfigForm config={config} onSave={updateConfig} loading={loading} guildId={guildId || ''} />

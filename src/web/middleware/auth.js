@@ -5,9 +5,27 @@ export function requireAuth(req, res, next) {
   next();
 }
 
+export function requireOwner(req, res, next) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Unauthorized. Please login.' });
+  }
+
+  const botOwnerId = process.env.BOT_OWNER_ID;
+  if (!botOwnerId || req.user.id !== botOwnerId) {
+    return res.status(403).json({ error: 'Access denied. Only the bot owner can access the dashboard.' });
+  }
+
+  next();
+}
+
 export function requireWhitelist(req, res, next) {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Unauthorized. Please login.' });
+  }
+
+  const botOwnerId = process.env.BOT_OWNER_ID;
+  if (botOwnerId && req.user.id !== botOwnerId) {
+    return res.status(403).json({ error: 'Access denied. Only the bot owner can access the dashboard.' });
   }
 
   next();

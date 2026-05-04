@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Lock, UserPlus, UserMinus, Shield, Trash2 } from 'lucide-react';
+import { Lock, UserPlus, Shield, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { GuildConfig } from '../../types';
 
 interface WhitelistConfigFormProps {
   config: GuildConfig;
-  onSave: (updates: Partial<GuildConfig>) => Promise<void>;
+  onSave: (updates: Partial<GuildConfig>) => Promise<GuildConfig | undefined>;
   loading: boolean;
 }
 

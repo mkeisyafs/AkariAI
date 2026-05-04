@@ -239,6 +239,8 @@ router.patch('/:guildId/config', requireAuth, requireWhitelist, requireGuildAcce
       'moderationAutoKick',
       'moderationAutoBan',
       'moderationLogChannelId',
+      'moderationBannedWords',
+      'moderationWarnPunishments',
       'verificationEnabled',
       'verificationRoleId',
       'verificationChannelId',
@@ -246,10 +248,15 @@ router.patch('/:guildId/config', requireAuth, requireWhitelist, requireGuildAcce
       'verificationMessage',
       'verificationEmoji',
       'verificationButtonText',
+      'verificationAlreadyVerifiedMessage',
       'welcomeEnabled',
       'welcomeChannelId',
       'welcomeMessage',
       'welcomeUseEmbed',
+      'goodbyeEnabled',
+      'goodbyeChannelId',
+      'goodbyeMessage',
+      'goodbyeUseEmbed',
       'whitelistEnabled',
       'whitelistUserIds',
       'whitelistRoleIds',
@@ -308,6 +315,160 @@ router.post('/:guildId/verification/send', requireAuth, requireWhitelist, requir
   } catch (error) {
     console.error('Error sending verification message:', error);
     res.status(500).json({ error: error.message || 'Failed to send verification message' });
+  }
+});
+
+router.post('/:guildId/welcome/test', requireAuth, requireWhitelist, requireGuildAccess, async (req, res) => {
+  try {
+    const { guildId } = req.params;
+
+    const botToken = process.env.DISCORD_TOKEN;
+    const member = await fetchGuildMember(guildId, req.user.id, botToken);
+    const guild = req.user.guilds.find(g => g.id === guildId);
+
+    if (!guild) {
+      return res.status(404).json({ error: 'Guild not found' });
+    }
+
+    const guildWithRoles = {
+      ...guild,
+      roles: member?.roles || [],
+    };
+
+    const whitelistCheck = await checkGuildWhitelist(
+      guildId,
+      req.user,
+      [guildWithRoles]
+    );
+
+    if (!whitelistCheck.allowed) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: whitelistCheck.reason
+      });
+    }
+
+    const config = await guildConfigRepository.findByGuildId(guildId);
+    if (!config || !config.welcomeChannelId) {
+      return res.status(400).json({ error: 'Welcome channel is not configured' });
+    }
+
+    const { default: client } = await import('../../index.js');
+    const discordGuild = client.guilds.cache.get(guildId);
+    if (!discordGuild) {
+      return res.status(404).json({ error: 'Bot is not in this guild' });
+    }
+
+    const channel = discordGuild.channels.cache.get(config.welcomeChannelId);
+    if (!channel) {
+      return res.status(404).json({ error: 'Welcome channel not found' });
+    }
+
+    const discordMember = await discordGuild.members.fetch(req.user.id).catch(() => null);
+    const username = discordMember ? `<@${req.user.id}>` : req.user.username;
+
+    const message = config.welcomeMessage
+      .replace('{user}', username)
+      .replace('{server}', discordGuild.name)
+      .replace('{memberCount}', discordGuild.memberCount.toString());
+
+    const { EmbedBuilder } = await import('discord.js');
+
+    if (config.welcomeUseEmbed) {
+      const embed = new EmbedBuilder()
+        .setColor('#00ff00')
+        .setTitle('Welcome!')
+        .setDescription(message)
+        .setThumbnail(discordMember?.user.displayAvatarURL() || null)
+        .setFooter({ text: 'This is a test message' })
+        .setTimestamp();
+
+      await channel.send({ embeds: [embed] });
+    } else {
+      await channel.send(`${message}\n-# This is a test message`);
+    }
+
+    res.json({ success: true, message: 'Test welcome message sent' });
+  } catch (error) {
+    console.error('Error sending test welcome message:', error);
+    res.status(500).json({ error: error.message || 'Failed to send test welcome message' });
+  }
+});
+
+router.post('/:guildId/goodbye/test', requireAuth, requireWhitelist, requireGuildAccess, async (req, res) => {
+  try {
+    const { guildId } = req.params;
+
+    const botToken = process.env.DISCORD_TOKEN;
+    const member = await fetchGuildMember(guildId, req.user.id, botToken);
+    const guild = req.user.guilds.find(g => g.id === guildId);
+
+    if (!guild) {
+      return res.status(404).json({ error: 'Guild not found' });
+    }
+
+    const guildWithRoles = {
+      ...guild,
+      roles: member?.roles || [],
+    };
+
+    const whitelistCheck = await checkGuildWhitelist(
+      guildId,
+      req.user,
+      [guildWithRoles]
+    );
+
+    if (!whitelistCheck.allowed) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: whitelistCheck.reason
+      });
+    }
+
+    const config = await guildConfigRepository.findByGuildId(guildId);
+    if (!config || !config.goodbyeChannelId) {
+      return res.status(400).json({ error: 'Goodbye channel is not configured' });
+    }
+
+    const { default: client } = await import('../../index.js');
+    const discordGuild = client.guilds.cache.get(guildId);
+    if (!discordGuild) {
+      return res.status(404).json({ error: 'Bot is not in this guild' });
+    }
+
+    const channel = discordGuild.channels.cache.get(config.goodbyeChannelId);
+    if (!channel) {
+      return res.status(404).json({ error: 'Goodbye channel not found' });
+    }
+
+    const discordMember = await discordGuild.members.fetch(req.user.id).catch(() => null);
+    const username = discordMember ? discordMember.user.username : req.user.username;
+
+    const message = config.goodbyeMessage
+      .replace('{user}', username)
+      .replace('{server}', discordGuild.name)
+      .replace('{memberCount}', discordGuild.memberCount.toString());
+
+    const { EmbedBuilder } = await import('discord.js');
+
+    if (config.goodbyeUseEmbed) {
+      const embed = new EmbedBuilder()
+        .setColor('#ff4444')
+        .setTitle('Goodbye!')
+        .setDescription(message)
+        .setThumbnail(discordMember?.user.displayAvatarURL() || null)
+        .setFooter({ text: 'This is a test message' })
+        .setTimestamp();
+
+      await channel.send({ embeds: [embed] });
+    } else {
+      await channel.send(`${message}\n-# This is a test message`);
+    }
+
+    res.json({ success: true, message: 'Test goodbye message sent' });
+  } catch (error) {
+    console.error('Error sending test goodbye message:', error);
+    res.status(500).json({ error: error.message || 'Failed to send test goodbye message' });
   }
 });
 

@@ -11,10 +11,10 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
         configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, res) => {
+          proxy.on('error', (_err, _req, _res) => {
             console.log('Proxy error - backend may not be ready yet');
           });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+          proxy.on('proxyReq', (_proxyReq, req, _res) => {
             console.log('Proxying:', req.method, req.url);
           });
         },

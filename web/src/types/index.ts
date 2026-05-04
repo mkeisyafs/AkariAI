@@ -33,6 +33,8 @@ export interface GuildConfig {
   moderationAutoKick: boolean;
   moderationAutoBan: boolean;
   moderationLogChannelId: string | null;
+  moderationBannedWords: string[];
+  moderationWarnPunishments: { warns: number; action: string; duration: number }[];
   verificationEnabled: boolean;
   verificationRoleId: string | null;
   verificationChannelId: string | null;
@@ -40,10 +42,15 @@ export interface GuildConfig {
   verificationMessage: string;
   verificationEmoji: string;
   verificationButtonText: string;
+  verificationAlreadyVerifiedMessage: string;
   welcomeEnabled: boolean;
   welcomeChannelId: string | null;
   welcomeMessage: string;
   welcomeUseEmbed: boolean;
+  goodbyeEnabled: boolean;
+  goodbyeChannelId: string | null;
+  goodbyeMessage: string;
+  goodbyeUseEmbed: boolean;
   whitelistEnabled: boolean;
   whitelistUserIds: string[];
   whitelistRoleIds: string[];

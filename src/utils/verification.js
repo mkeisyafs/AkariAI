@@ -16,7 +16,8 @@ export default async function handleVerification(interaction) {
     }
 
     if (interaction.member.roles.cache.has(role.id)) {
-      return interaction.reply({ content: '✅ You are already verified!', ephemeral: true });
+      const alreadyVerifiedMsg = config.verificationAlreadyVerifiedMessage || '✅ You are already verified!';
+      return interaction.reply({ content: alreadyVerifiedMsg, ephemeral: true });
     }
 
     await interaction.member.roles.add(role);

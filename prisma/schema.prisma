@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model GuildConfig {
+  id        String   @id @default(cuid())
+  guildId   String   @unique
+  
+  // AI Configuration
+  aiEnabled         Boolean  @default(true)
+  aiBaseUrl         String   @default("")
+  aiModel           String   @default("")
+  aiApiKey          String   @default("")
+  aiPersonality     String   @default("You are a helpful and friendly Discord bot assistant.")
+  aiResponseChance  Int      @default(100)
+  aiCooldown        Int      @default(3000)
+  aiAllowedChannels String[] @default([])
+  aiMaxTokens       Int      @default(1000)
+  aiContextMessages Int      @default(10)
+  
+  // Moderation Configuration
+  moderationEnabled          Boolean @default(true)
+  moderationToxicityThreshold Float  @default(0.7)
+  moderationAutoWarn         Boolean @default(true)
+  moderationAutoMute         Boolean @default(false)
+  moderationAutoKick         Boolean @default(false)
+  moderationAutoBan          Boolean @default(false)
+  moderationLogChannelId     String?
+  
+  // Verification Configuration
+  verificationEnabled  Boolean @default(false)
+  verificationRoleId   String?
+  verificationChannelId String?
+  verificationMethod   String  @default("button")
+  verificationMessage  String  @default("Welcome! Click the button below to verify and gain access to the server.")
+  verificationEmoji    String  @default("✅")
+  verificationButtonText String @default("Verify")
+  
+  // Welcome Configuration
+  welcomeEnabled   Boolean @default(false)
+  welcomeChannelId String?
+  welcomeMessage   String  @default("Welcome {user} to {server}!")
+  welcomeUseEmbed  Boolean @default(true)
+
+  // Whitelist Configuration
+  whitelistEnabled Boolean  @default(false)
+  whitelistUserIds String[] @default([])
+  whitelistRoleIds String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  moderationLogs ModerationLog[]
+  userWarnings   UserWarning[]
+  
+  @@index([guildId])
+}
+
+model ModerationLog {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String
+  moderatorId String
+  action      String
+  reason      String   @default("No reason provided")
+  duration    Int?
+  timestamp   DateTime @default(now())
+  
+  guild GuildConfig @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+  
+  @@index([guildId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model UserWarning {
+  id       String    @id @default(cuid())
+  guildId  String
+  userId   String
+  warnings Warning[]
+  
+  guild GuildConfig @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+  
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@index([userId])
+}
+
+model Warning {
+  id            String      @id @default(cuid())
+  moderatorId   String
+  reason        String
+  timestamp     DateTime    @default(now())
+  userWarningId String
+
+  userWarning UserWarning @relation(fields: [userWarningId], references: [id], onDelete: Cascade)
+
+  @@index([userWarningId])
+}
+
+model Knowledge {
+  id          String   @id @default(cuid())
+  guildId     String
+  key         String
+  value       String   @db.Text
+  category    String   @default("general")
+  description String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([guildId, key])
+  @@index([guildId])
+  @@index([category])
+}
+
+model ConversationHistory {
+  id        String   @id @default(cuid())
+  guildId   String
+  channelId String
+  userId    String
+  username  String
+  role      String
+  content   String   @db.Text
+  timestamp DateTime @default(now())
+
+  @@index([guildId, channelId, timestamp])
+  @@index([channelId])
+}

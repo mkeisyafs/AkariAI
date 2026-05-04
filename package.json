@@ -1,0 +1,50 @@
+{
+  "name": "discord-ai-bot",
+  "version": "1.0.0",
+  "description": "Full-featured Discord bot with AI chat, moderation, and verification",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "deploy": "node src/deploy-commands.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "verify": "node verify-setup.js",
+    "web:dev": "cd web && npm run dev",
+    "web:build": "cd web && npm run build",
+    "dev:all": "npm run dev & sleep 3 && npm run web:dev"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "ai",
+    "moderation"
+  ],
+  "author": "enowX Labs",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@supabase/supabase-js": "^2.105.1",
+    "axios": "^1.6.7",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "helmet": "^8.1.0",
+    "memorystore": "^1.6.8",
+    "node-cache": "^5.1.2",
+    "passport": "^0.7.0",
+    "passport-discord": "^0.1.4",
+    "pg": "^8.20.0",
+    "prisma": "^7.8.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

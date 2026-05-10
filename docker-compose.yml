@@ -27,7 +27,7 @@ services:
     env_file:
       - .env.docker
     environment:
-      DATABASE_URL: postgresql://akari:akari_secret_db_2024@postgres:5432/akaribot
+      DATABASE_URL: postgresql://akari:akari_secret_db_2024@postgres:5432/akaribot?sslmode=disable
       NODE_ENV: production
       WEB_PORT: 3000
 

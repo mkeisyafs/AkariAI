@@ -88,7 +88,7 @@ export function startWebServer(discordClient) {
     });
   });
 
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Web server running on http://localhost:${PORT}`);
     if (!isProduction) {
       console.log(`   Frontend dev server: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);

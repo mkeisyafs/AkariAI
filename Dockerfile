@@ -15,6 +15,9 @@ RUN cd web && pnpm install --frozen-lockfile
 COPY . .
 
 RUN npx prisma generate
+
+# Build frontend with API URL pointing to same origin
+ENV VITE_API_URL=""
 RUN cd web && pnpm build
 
 ENV NODE_ENV=production

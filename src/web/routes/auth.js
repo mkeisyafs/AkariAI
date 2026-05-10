@@ -31,7 +31,7 @@ router.get('/user', (req, res) => {
     username,
     discriminator,
     avatar,
-    guilds: guilds.map(g => ({
+    guilds: (guilds || []).map(g => ({
       id: g.id,
       name: g.name,
       icon: g.icon,

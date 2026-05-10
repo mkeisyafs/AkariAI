@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useGuildConfig } from '../hooks/useGuildConfig';
+import { guildsAPI } from '../services/api';
 import { ArrowLeft, Sparkles, Shield, Users, CheckCircle, BookOpen, Lock } from 'lucide-react';
 import AIConfigForm from '../components/config/AIConfigForm';
 import ModerationConfigForm from '../components/config/ModerationConfigForm';
@@ -9,6 +10,7 @@ import WelcomeConfigForm from '../components/config/WelcomeConfigForm';
 import VerificationConfigForm from '../components/config/VerificationConfigForm';
 import KnowledgeConfigForm from '../components/config/KnowledgeConfigForm';
 import WhitelistConfigForm from '../components/config/WhitelistConfigForm';
+import type { Guild } from '../types';
 
 type Tab = 'ai' | 'moderation' | 'welcome' | 'verification' | 'knowledge' | 'whitelist';
 
@@ -18,13 +20,35 @@ export default function GuildConfig() {
   const { user } = useAuth();
   const { config, loading, updateConfig } = useGuildConfig(guildId || null);
   const [activeTab, setActiveTab] = useState<Tab>('ai');
+  const [guild, setGuild] = useState<Guild | null>(null);
+  const [fetchingGuild, setFetchingGuild] = useState(false);
 
-  const guild = user?.guilds.find((g) => g.id === guildId);
+  useEffect(() => {
+    if (!guildId || !user) return;
 
-  if (!guild) {
+    const foundGuild = user.guilds?.find((g) => g.id === guildId);
+    if (foundGuild) {
+      setGuild(foundGuild);
+    } else {
+      const fetchGuild = async () => {
+        try {
+          setFetchingGuild(true);
+          const response = await guildsAPI.getGuild(guildId);
+          setGuild(response.data);
+        } catch (error) {
+          console.error('Failed to fetch guild:', error);
+        } finally {
+          setFetchingGuild(false);
+        }
+      };
+      fetchGuild();
+    }
+  }, [guildId, user]);
+
+  if (fetchingGuild || !guild) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400">Guild not found</p>
+        <p className="text-gray-400">Loading guild...</p>
       </div>
     );
   }

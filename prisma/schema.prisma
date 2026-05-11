@@ -48,6 +48,10 @@ model GuildConfig {
   welcomeChannelId String?
   welcomeMessage   String  @default("Welcome {user} to {server}!")
   welcomeUseEmbed  Boolean @default(true)
+  
+  // Auto-Role Configuration
+  autoRoleEnabled  Boolean  @default(false)
+  autoRoleIds      String[] @default([])
 
   // Goodbye Configuration
   goodbyeEnabled   Boolean @default(false)

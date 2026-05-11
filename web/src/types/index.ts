@@ -47,6 +47,8 @@ export interface GuildConfig {
   welcomeChannelId: string | null;
   welcomeMessage: string;
   welcomeUseEmbed: boolean;
+  autoRoleEnabled: boolean;
+  autoRoleIds: string[];
   goodbyeEnabled: boolean;
   goodbyeChannelId: string | null;
   goodbyeMessage: string;

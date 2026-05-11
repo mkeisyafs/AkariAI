@@ -6,6 +6,11 @@ export default {
   async execute(member) {
     const config = await getGuildConfig(member.guild.id);
 
+    // Auto-assign roles if enabled
+    if (config.autoRoleEnabled && config.autoRoleIds && config.autoRoleIds.length > 0) {
+      await assignAutoRoles(member, config);
+    }
+
     if (config.welcomeEnabled && config.welcomeChannelId) {
       await sendWelcomeMessage(member, config);
     }
@@ -66,5 +71,32 @@ async function sendVerificationMessage(member, config) {
     }
   } catch (error) {
     console.error('Error sending verification message:', error);
+  }
+}
+
+async function assignAutoRoles(member, config) {
+  try {
+    const validRoleIds = [];
+    
+    for (const roleId of config.autoRoleIds) {
+      const role = member.guild.roles.cache.get(roleId);
+      if (!role) {
+        console.warn(`Auto-role ${roleId} not found in guild ${member.guild.id}`);
+        continue;
+      }
+      
+      if (member.roles.cache.has(roleId)) {
+        continue;
+      }
+      
+      validRoleIds.push(roleId);
+    }
+    
+    if (validRoleIds.length > 0) {
+      await member.roles.add(validRoleIds);
+      console.log(`Auto-assigned ${validRoleIds.length} role(s) to ${member.user.tag} in ${member.guild.name}`);
+    }
+  } catch (error) {
+    console.error('Error assigning auto-roles:', error);
   }
 }

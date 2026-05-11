@@ -17,6 +17,8 @@ export default function WelcomeConfigForm({ config, onSave, loading, guildId }: 
     welcomeChannelId: config.welcomeChannelId || '',
     welcomeMessage: config.welcomeMessage,
     welcomeUseEmbed: config.welcomeUseEmbed,
+    autoRoleEnabled: config.autoRoleEnabled,
+    autoRoleIds: (config.autoRoleIds || []).join('\n'),
     goodbyeEnabled: config.goodbyeEnabled,
     goodbyeChannelId: config.goodbyeChannelId || '',
     goodbyeMessage: config.goodbyeMessage || 'Goodbye {user}, we\'ll miss you!',
@@ -31,6 +33,8 @@ export default function WelcomeConfigForm({ config, onSave, loading, guildId }: 
       welcomeChannelId: config.welcomeChannelId || '',
       welcomeMessage: config.welcomeMessage,
       welcomeUseEmbed: config.welcomeUseEmbed,
+      autoRoleEnabled: config.autoRoleEnabled,
+      autoRoleIds: (config.autoRoleIds || []).join('\n'),
       goodbyeEnabled: config.goodbyeEnabled,
       goodbyeChannelId: config.goodbyeChannelId || '',
       goodbyeMessage: config.goodbyeMessage || 'Goodbye {user}, we\'ll miss you!',
@@ -44,6 +48,10 @@ export default function WelcomeConfigForm({ config, onSave, loading, guildId }: 
       ...formData,
       welcomeChannelId: formData.welcomeChannelId || null,
       goodbyeChannelId: formData.goodbyeChannelId || null,
+      autoRoleIds: formData.autoRoleIds
+        .split('\n')
+        .map(id => id.trim())
+        .filter(id => id.length > 0),
     });
   };
 
@@ -162,6 +170,53 @@ export default function WelcomeConfigForm({ config, onSave, loading, guildId }: 
             <Send className="h-4 w-4" />
             <span>{testingWelcome ? 'Sending...' : 'Test Welcome Message'}</span>
           </button>
+        </div>
+      </div>
+
+      <hr className="border-gray-700" />
+
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Auto-Role Assignment</h3>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-sm font-medium text-gray-300">
+                Enable Auto-Role
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                Automatically assign roles when members join
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, autoRoleEnabled: !formData.autoRoleEnabled })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                formData.autoRoleEnabled ? 'bg-discord-blurple' : 'bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                  formData.autoRoleEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Role IDs
+            </label>
+            <textarea
+              value={formData.autoRoleIds}
+              onChange={(e) => setFormData({ ...formData, autoRoleIds: e.target.value })}
+              rows={4}
+              className="w-full px-4 py-2 bg-discord-dark border border-gray-700 rounded-lg text-white focus:outline-none focus:border-discord-blurple"
+              placeholder="Enter role IDs (one per line)"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter role IDs to automatically assign when members join (one per line). Right-click a role in Discord → Copy ID
+            </p>
+          </div>
         </div>
       </div>
 

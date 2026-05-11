@@ -253,6 +253,8 @@ router.patch('/:guildId/config', requireAuth, requireWhitelist, requireGuildAcce
       'welcomeChannelId',
       'welcomeMessage',
       'welcomeUseEmbed',
+      'autoRoleEnabled',
+      'autoRoleIds',
       'goodbyeEnabled',
       'goodbyeChannelId',
       'goodbyeMessage',

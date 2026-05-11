@@ -28,10 +28,17 @@ export default {
       return;
     }
 
-    const shouldRespond = message.mentions.has(message.client.user) ||
-                          Math.random() * 100 < config.aiResponseChance;
+    const isMentioned = message.mentions.has(message.client.user);
+    const isReply = message.reference && message.type === 19;
 
-    if (!shouldRespond) return;
+    if (config.aiReplyOnlyMode) {
+      if (!isMentioned && !isReply) {
+        return;
+      }
+    } else {
+      const shouldRespond = isMentioned || Math.random() * 100 < config.aiResponseChance;
+      if (!shouldRespond) return;
+    }
 
     if (config.aiAllowedChannels.length > 0 &&
         !config.aiAllowedChannels.includes(message.channel.id)) {

@@ -11,6 +11,7 @@ interface AIConfigFormProps {
 
 export default function AIConfigForm({ config, onSave, loading }: AIConfigFormProps) {
   const [aiEnabled, setAiEnabled] = useState(config.aiEnabled ?? true);
+  const [aiReplyOnlyMode, setAiReplyOnlyMode] = useState(config.aiReplyOnlyMode ?? false);
   const [formData, setFormData] = useState({
     aiBaseUrl: config.aiBaseUrl,
     aiModel: config.aiModel,
@@ -26,6 +27,7 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
 
   useEffect(() => {
     setAiEnabled(config.aiEnabled ?? true);
+    setAiReplyOnlyMode(config.aiReplyOnlyMode ?? false);
     setFormData({
       aiBaseUrl: config.aiBaseUrl,
       aiModel: config.aiModel,
@@ -46,6 +48,16 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
       toast.success(`AI chat ${!aiEnabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
       toast.error('Failed to update AI status');
+    }
+  };
+
+  const handleToggleReplyOnlyMode = async () => {
+    try {
+      await onSave({ aiReplyOnlyMode: !aiReplyOnlyMode });
+      setAiReplyOnlyMode(!aiReplyOnlyMode);
+      toast.success(`Reply-only mode ${!aiReplyOnlyMode ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      toast.error('Failed to update reply-only mode');
     }
   };
 
@@ -117,6 +129,33 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
                 aiEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-discord-gray rounded-lg">
+          <div className="flex items-center space-x-3">
+            <MessageSquare className="h-6 w-6 text-discord-blurple" />
+            <div>
+              <h4 className="text-white font-medium">Reply-Only Mode</h4>
+              <p className="text-sm text-gray-400">
+                {aiReplyOnlyMode
+                  ? 'Bot only responds when mentioned or replied to'
+                  : 'Bot responds randomly based on response chance'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleReplyOnlyMode}
+            disabled={loading || !aiEnabled}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+              aiReplyOnlyMode ? 'bg-discord-blurple' : 'bg-gray-600'
+            } ${loading || !aiEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                aiReplyOnlyMode ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
           </button>

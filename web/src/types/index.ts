@@ -26,6 +26,7 @@ export interface GuildConfig {
   aiAllowedChannels: string[];
   aiMaxTokens: number;
   aiContextMessages: number;
+  aiReplyOnlyMode: boolean;
   moderationEnabled: boolean;
   moderationToxicityThreshold: number;
   moderationAutoWarn: boolean;

@@ -21,6 +21,7 @@ model GuildConfig {
   aiAllowedChannels String[] @default([])
   aiMaxTokens       Int      @default(1000)
   aiContextMessages Int      @default(10)
+  aiReplyOnlyMode   Boolean  @default(false)
   
   // Moderation Configuration
   moderationEnabled          Boolean @default(true)

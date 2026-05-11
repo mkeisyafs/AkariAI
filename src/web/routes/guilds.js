@@ -232,6 +232,7 @@ router.patch('/:guildId/config', requireAuth, requireWhitelist, requireGuildAcce
       'aiAllowedChannels',
       'aiMaxTokens',
       'aiContextMessages',
+      'aiReplyOnlyMode',
       'moderationEnabled',
       'moderationToxicityThreshold',
       'moderationAutoWarn',

@@ -263,6 +263,7 @@ router.patch('/:guildId/config', requireAuth, requireWhitelist, requireGuildAcce
       'whitelistEnabled',
       'whitelistUserIds',
       'whitelistRoleIds',
+      'disabledCommands',
     ];
 
     const filteredUpdates = {};
@@ -472,6 +473,46 @@ router.post('/:guildId/goodbye/test', requireAuth, requireWhitelist, requireGuil
   } catch (error) {
     console.error('Error sending test goodbye message:', error);
     res.status(500).json({ error: error.message || 'Failed to send test goodbye message' });
+  }
+});
+
+router.get('/:guildId/commands', requireAuth, requireWhitelist, requireGuildAccess, async (req, res) => {
+  try {
+    const { readdirSync } = await import('fs');
+    const { join, dirname } = await import('path');
+    const { fileURLToPath } = await import('url');
+    
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    
+    const commandsPath = join(__dirname, '../../commands');
+    const commandFolders = readdirSync(commandsPath);
+    
+    const commands = [];
+    
+    for (const folder of commandFolders) {
+      const folderPath = join(commandsPath, folder);
+      const commandFiles = readdirSync(folderPath).filter(file => file.endsWith('.js'));
+      
+      for (const file of commandFiles) {
+        const filePath = join(folderPath, file);
+        const command = await import(`file://${filePath}`);
+        
+        if ('data' in command.default && 'execute' in command.default) {
+          commands.push({
+            name: command.default.data.name,
+            description: command.default.data.description,
+            category: folder,
+            adminOnly: command.default.adminOnly || false,
+          });
+        }
+      }
+    }
+    
+    res.json({ commands });
+  } catch (error) {
+    console.error('Error fetching commands:', error);
+    res.status(500).json({ error: 'Failed to fetch commands' });
   }
 });
 

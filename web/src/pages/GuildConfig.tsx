@@ -3,16 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useGuildConfig } from '../hooks/useGuildConfig';
 import { guildsAPI } from '../services/api';
-import { ArrowLeft, Sparkles, Shield, Users, CheckCircle, BookOpen, Lock } from 'lucide-react';
+import { ArrowLeft, Sparkles, Shield, Users, CheckCircle, BookOpen, Lock, Terminal } from 'lucide-react';
 import AIConfigForm from '../components/config/AIConfigForm';
 import ModerationConfigForm from '../components/config/ModerationConfigForm';
 import WelcomeConfigForm from '../components/config/WelcomeConfigForm';
 import VerificationConfigForm from '../components/config/VerificationConfigForm';
 import KnowledgeConfigForm from '../components/config/KnowledgeConfigForm';
 import WhitelistConfigForm from '../components/config/WhitelistConfigForm';
+import CommandsConfigForm from '../components/config/CommandsConfigForm';
 import type { Guild } from '../types';
 
-type Tab = 'ai' | 'moderation' | 'welcome' | 'verification' | 'knowledge' | 'whitelist';
+type Tab = 'ai' | 'moderation' | 'welcome' | 'verification' | 'knowledge' | 'whitelist' | 'commands';
 
 export default function GuildConfig() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -67,6 +68,7 @@ export default function GuildConfig() {
     { id: 'welcome' as Tab, name: 'Welcome System', icon: Users, shortName: 'Welcome' },
     { id: 'verification' as Tab, name: 'Verification', icon: CheckCircle, shortName: 'Verify' },
     { id: 'knowledge' as Tab, name: 'Knowledge Base', icon: BookOpen, shortName: 'Knowledge' },
+    { id: 'commands' as Tab, name: 'Commands', icon: Terminal, shortName: 'Commands' },
     { id: 'whitelist' as Tab, name: 'Access Control', icon: Lock, shortName: 'Access' },
   ];
 
@@ -136,6 +138,9 @@ export default function GuildConfig() {
         )}
         {activeTab === 'knowledge' && guildId && (
           <KnowledgeConfigForm guildId={guildId} />
+        )}
+        {activeTab === 'commands' && guildId && (
+          <CommandsConfigForm config={config} onSave={updateConfig} loading={loading} guildId={guildId} />
         )}
         {activeTab === 'whitelist' && (
           <WhitelistConfigForm config={config} onSave={updateConfig} loading={loading} />

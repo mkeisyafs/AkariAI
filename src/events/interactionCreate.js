@@ -1,4 +1,5 @@
 import { PermissionFlagsBits } from 'discord.js';
+import { getGuildConfig } from '../utils/configManager.js';
 
 export default {
   name: 'interactionCreate',
@@ -16,6 +17,15 @@ async function handleCommand(interaction) {
 
   if (!command) {
     return interaction.reply({ content: '❌ Command not found.', ephemeral: true });
+  }
+
+  const config = await getGuildConfig(interaction.guild.id);
+  
+  if (config.disabledCommands && config.disabledCommands.includes(interaction.commandName)) {
+    return interaction.reply({ 
+      content: '❌ This command has been disabled by server administrators.', 
+      ephemeral: true 
+    });
   }
 
   if (command.adminOnly && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {

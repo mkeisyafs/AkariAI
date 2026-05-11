@@ -65,6 +65,9 @@ model GuildConfig {
   whitelistUserIds String[] @default([])
   whitelistRoleIds String[] @default([])
 
+  // Command Configuration
+  disabledCommands String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   

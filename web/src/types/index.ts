@@ -57,6 +57,7 @@ export interface GuildConfig {
   whitelistEnabled: boolean;
   whitelistUserIds: string[];
   whitelistRoleIds: string[];
+  disabledCommands: string[];
   createdAt: string;
   updatedAt: string;
 }

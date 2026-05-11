@@ -144,3 +144,16 @@ model ConversationHistory {
   @@index([guildId, channelId, timestamp])
   @@index([channelId])
 }
+
+model UserIgnoreList {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  ignored   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@index([userId])
+}

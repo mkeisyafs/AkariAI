@@ -1,6 +1,7 @@
 import { getGuildConfig } from '../utils/configManager.js';
 import { generateAIResponseWithKnowledge } from '../services/aiService.js';
 import { checkToxicity } from '../services/moderationService.js';
+import userIgnoreListRepository from '../database/repositories/userIgnoreListRepository.js';
 
 export default {
   name: 'messageCreate',
@@ -15,6 +16,15 @@ export default {
     }
 
     if (!config.aiEnabled) {
+      return;
+    }
+
+    const isIgnored = await userIgnoreListRepository.isUserIgnored(
+      message.guild.id,
+      message.author.id
+    );
+
+    if (isIgnored) {
       return;
     }
 

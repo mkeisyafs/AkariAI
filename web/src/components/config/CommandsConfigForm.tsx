@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Terminal, Shield, Wrench, CheckCircle, XCircle } from 'lucide-react';
+import { Terminal, Shield, Wrench, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import type { GuildConfig } from '../../types';
@@ -22,6 +22,7 @@ export default function CommandsConfigForm({ config, onSave, loading, guildId }:
   const [commands, setCommands] = useState<Command[]>([]);
   const [disabledCommands, setDisabledCommands] = useState<string[]>(config.disabledCommands || []);
   const [fetchingCommands, setFetchingCommands] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [filter, setFilter] = useState<string>('all');
 
   useEffect(() => {
@@ -55,13 +56,34 @@ export default function CommandsConfigForm({ config, onSave, loading, guildId }:
     try {
       await onSave({ disabledCommands: newDisabledCommands });
       setDisabledCommands(newDisabledCommands);
+      
+      const wasDisabled = disabledCommands.includes(commandName);
       toast.success(
-        disabledCommands.includes(commandName)
+        wasDisabled
           ? `Command /${commandName} enabled`
           : `Command /${commandName} disabled`
       );
+      
+      await syncCommands();
     } catch (error) {
       toast.error('Failed to update command status');
+    }
+  };
+
+  const syncCommands = async () => {
+    try {
+      setSyncing(true);
+      const response = await axios.post(
+        `/api/guilds/${guildId}/commands/sync`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success(response.data.message || 'Commands synced with Discord');
+    } catch (error) {
+      console.error('Error syncing commands:', error);
+      toast.error('Failed to sync commands with Discord');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -98,9 +120,19 @@ export default function CommandsConfigForm({ config, onSave, loading, guildId }:
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-white mb-2">Command Management</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold text-white">Command Management</h3>
+          <button
+            onClick={syncCommands}
+            disabled={syncing || loading}
+            className="flex items-center space-x-2 px-4 py-2 bg-discord-blurple hover:bg-discord-blurple-dark disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'Syncing...' : 'Sync with Discord'}</span>
+          </button>
+        </div>
         <p className="text-sm text-gray-400">
-          Enable or disable specific commands for this server. Disabled commands cannot be used by anyone.
+          Enable or disable specific commands for this server. Disabled commands will disappear from Discord's command list.
         </p>
       </div>
 
@@ -152,12 +184,12 @@ export default function CommandsConfigForm({ config, onSave, loading, guildId }:
                 
                 <button
                   onClick={() => toggleCommand(command.name)}
-                  disabled={loading}
+                  disabled={loading || syncing}
                   className={`ml-3 p-2 rounded-lg transition ${
                     isDisabled
                       ? 'bg-red-900/30 hover:bg-red-900/50 text-red-400'
                       : 'bg-green-900/30 hover:bg-green-900/50 text-green-400'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${loading || syncing ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title={isDisabled ? 'Enable command' : 'Disable command'}
                 >
                   {isDisabled ? (

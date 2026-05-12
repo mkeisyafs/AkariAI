@@ -516,4 +516,32 @@ router.get('/:guildId/commands', requireAuth, requireWhitelist, requireGuildAcce
   }
 });
 
+router.post('/:guildId/commands/sync', requireAuth, requireWhitelist, requireGuildAccess, async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    const { syncGuildCommands, getAllCommands } = await import('../../utils/commandSync.js');
+    const guildConfigRepository = (await import('../../database/repositories/guildConfigRepository.js')).default;
+    
+    const config = await guildConfigRepository.findByGuildId(guildId);
+    const disabledCommands = config?.disabledCommands || [];
+    
+    const allCommands = await getAllCommands();
+    const enabledCommandNames = allCommands
+      .map(cmd => cmd.name)
+      .filter(name => !disabledCommands.includes(name));
+    
+    const result = await syncGuildCommands(guildId, enabledCommandNames);
+    
+    res.json({
+      success: true,
+      message: `Synced ${result.count} commands`,
+      enabledCount: result.count,
+      disabledCount: disabledCommands.length,
+    });
+  } catch (error) {
+    console.error('Error syncing guild commands:', error);
+    res.status(500).json({ error: 'Failed to sync commands' });
+  }
+});
+
 export default router;

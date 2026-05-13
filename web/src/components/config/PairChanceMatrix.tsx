@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, Save, Undo2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePairChance } from '../../hooks/usePairChance';
+import type { PairMatrix } from '../../types';
 
 export interface BotLite {
   id: string;
@@ -179,6 +180,12 @@ export default function PairChanceMatrix({ guildId, bots }: PairChanceMatrixProp
       </div>
     </div>
   );
+}
+
+interface ModeProps {
+  bots: BotLite[];
+  matrix: PairMatrix;
+  setCell: (speakerId: string, targetId: string, chance: number) => void;
 }
 
 function GridMode({ bots, matrix, setCell }: ModeProps) {

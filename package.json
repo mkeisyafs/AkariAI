@@ -10,6 +10,7 @@
     "deploy": "node src/deploy-commands.js",
     "clear-global": "node src/clear-global-commands.js",
     "gen-key": "node scripts/gen-encryption-key.js",
+    "migrate:multi-bot": "node scripts/backfill-multi-bot.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

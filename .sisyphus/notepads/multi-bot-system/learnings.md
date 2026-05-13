@@ -220,3 +220,15 @@ For V1 reviewers: this is correct behavior.
 - Admin routes kept their existing `logServerError()` wrapper for internal 500 diagnostics — it pre-scrubs via `safeLog` before delegating to `logger.error('admin.bots.error', ...)`. The wrapper is now 3× shorter and no longer hand-rolls the JSON envelope.
 - `msg.pair.roll` is `debug` level (not `info`) because it fires on every bot-to-bot message regardless of decision. `msg.sender.classified` is `info` because it fires once per candidate message and is useful for audit trails.
 - `LOG_PRETTY=1` output appends `ctx` as compact JSON: `[ts] LEVEL event {"k":"v"}`. Avoids a second JSON.stringify pass at emit time and keeps single-line grepability.
+
+## 2026-05-13 — Task T27 (Guild Bots tab)
+
+- `GuildConfig.tsx` tabs are a flat array of `{id, name, icon, shortName}` and a `Tab` union literal. Adding a tab = extend union + array entry + render block. No router/state framework — `useState<Tab>('ai')` only.
+- Existing config forms use class palette: outer `space-y-6`, sub-panels `bg-discord-dark rounded-lg p-4 border border-gray-700`, inputs `bg-discord-gray border-gray-600 ... focus:border-discord-blurple`. The `discord-blurple` / `discord-blurple-dark` / `discord-gray` / `discord-dark` are project Tailwind extensions — DO NOT introduce raw hex.
+- `GuildBotEntry.settings` is `null` until first PUT — `useGuildBots.updateBot()` triggers row creation server-side. Form must default-render even with `settings === null` (used `DEFAULT_OVERRIDES`).
+- Inherit semantics: nullable fields (`personalityOverride`, `responseChance`, `cooldownMs`, `replyOnlyMode`) use empty-string sentinel in form state and convert to `null` on save. `replyOnlyMode` needed a tri-state select since checkbox can't represent inherit/true/false.
+- Invite URL: T27 spec calls for `client_id={discordAppId}&scope=bot+applications.commands&permissions=8&guild_id={guildId}&disable_guild_select=true`. Used `URLSearchParams` so the `+` between scopes encodes correctly to `%20` (Discord accepts both; `URLSearchParams` is safer than manual concat).
+- Toggle gating: PUT enforces `enabled=true` requires `presentInGuild` — surfaced as 409 from API. UI swaps Enable toggle for Invite anchor when `!presentInGuild`, so the 409 path is never hit from the new UI; toast still handles it as defense-in-depth.
+- `PairChanceMatrix` requires `BotLite[]` filtered to `presentInGuild === true` AND with `enabled` derived from `settings?.enabled` — disabled bots still appear in matrix (greyed) but missing/uninvited bots must be filtered out (matrix logic assumes bot is reachable).
+- Grep gotcha for testids: `data-testid={`...`}` (JSX expression with template literal) needs regex pattern `data-testid=(?:"|\{`)` — plain `data-testid="` or even `[\"\`]` char class miss the `{` opener. Used Python's `re` module for reliable counting; bash grep with backtick char class fails silently.
+- Hook `useGuildBots` already triggers `refresh()` after `updateBot`, so the BotCard's `baseline` (derived via `useMemo` from `settings`) auto-resets after save and `dirty` clears without manual sync.

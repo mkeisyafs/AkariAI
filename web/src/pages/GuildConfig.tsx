@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useGuildConfig } from '../hooks/useGuildConfig';
 import { guildsAPI } from '../services/api';
-import { ArrowLeft, Sparkles, Shield, Users, CheckCircle, BookOpen, Lock, Terminal } from 'lucide-react';
+import { ArrowLeft, Sparkles, Shield, Users, CheckCircle, BookOpen, Lock, Terminal, Bot } from 'lucide-react';
 import AIConfigForm from '../components/config/AIConfigForm';
 import ModerationConfigForm from '../components/config/ModerationConfigForm';
 import WelcomeConfigForm from '../components/config/WelcomeConfigForm';
@@ -11,9 +11,10 @@ import VerificationConfigForm from '../components/config/VerificationConfigForm'
 import KnowledgeConfigForm from '../components/config/KnowledgeConfigForm';
 import WhitelistConfigForm from '../components/config/WhitelistConfigForm';
 import CommandsConfigForm from '../components/config/CommandsConfigForm';
+import GuildBotsConfigForm from '../components/config/GuildBotsConfigForm';
 import type { Guild } from '../types';
 
-type Tab = 'ai' | 'moderation' | 'welcome' | 'verification' | 'knowledge' | 'whitelist' | 'commands';
+type Tab = 'ai' | 'bots' | 'moderation' | 'welcome' | 'verification' | 'knowledge' | 'whitelist' | 'commands';
 
 export default function GuildConfig() {
   const { guildId } = useParams<{ guildId: string }>();
@@ -64,6 +65,7 @@ export default function GuildConfig() {
 
   const tabs = [
     { id: 'ai' as Tab, name: 'AI Configuration', icon: Sparkles, shortName: 'AI' },
+    { id: 'bots' as Tab, name: 'Bots', icon: Bot, shortName: 'Bots' },
     { id: 'moderation' as Tab, name: 'Moderation', icon: Shield, shortName: 'Moderation' },
     { id: 'welcome' as Tab, name: 'Welcome System', icon: Users, shortName: 'Welcome' },
     { id: 'verification' as Tab, name: 'Verification', icon: CheckCircle, shortName: 'Verify' },
@@ -126,6 +128,9 @@ export default function GuildConfig() {
       <div className="bg-discord-gray rounded-lg p-4 md:p-6 border border-gray-700">
         {activeTab === 'ai' && (
           <AIConfigForm config={config} onSave={updateConfig} loading={loading} />
+        )}
+        {activeTab === 'bots' && guildId && (
+          <GuildBotsConfigForm guildId={guildId} />
         )}
         {activeTab === 'moderation' && (
           <ModerationConfigForm config={config} onSave={updateConfig} loading={loading} />

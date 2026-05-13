@@ -1,0 +1,1 @@
+115:  return `https://discord.com/oauth2/authorize?${params.toString()}`;

@@ -1,0 +1,5 @@
+14:import GuildBotsConfigForm from '../components/config/GuildBotsConfigForm';
+17:type Tab = 'ai' | 'bots' | 'moderation' | 'welcome' | 'verification' | 'knowledge' | 'whitelist' | 'commands';
+68:    { id: 'bots' as Tab, name: 'Bots', icon: Bot, shortName: 'Bots' },
+132:        {activeTab === 'bots' && guildId && (
+133:          <GuildBotsConfigForm guildId={guildId} />

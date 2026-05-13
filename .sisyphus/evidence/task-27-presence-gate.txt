@@ -1,0 +1,10 @@
+141:  const { bot, settings, presentInGuild } = entry;
+157:    if (!presentInGuild) return;
+209:              {presentInGuild ? (
+224:          {presentInGuild ? (
+258:            disabled={!presentInGuild}
+262:              presentInGuild ? 'hover:bg-discord-gray' : 'opacity-30 cursor-not-allowed'
+270:      {!presentInGuild && (
+280:      {expanded && presentInGuild && (
+500:        .filter(e => e.presentInGuild)
+505:          presentInGuild: e.presentInGuild,

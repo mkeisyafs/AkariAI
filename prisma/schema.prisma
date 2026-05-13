@@ -80,6 +80,7 @@ model GuildConfig {
 model ModerationLog {
   id          String   @id @default(cuid())
   guildId     String
+  botId       String?
   userId      String
   moderatorId String
   action      String
@@ -90,6 +91,7 @@ model ModerationLog {
   guild GuildConfig @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
   
   @@index([guildId])
+  @@index([botId])
   @@index([userId])
   @@index([timestamp])
 }
@@ -97,6 +99,7 @@ model ModerationLog {
 model UserWarning {
   id       String    @id @default(cuid())
   guildId  String
+  botId    String?
   userId   String
   warnings Warning[]
   
@@ -104,6 +107,7 @@ model UserWarning {
   
   @@unique([guildId, userId])
   @@index([guildId])
+  @@index([botId])
   @@index([userId])
 }
 
@@ -122,6 +126,7 @@ model Warning {
 model Knowledge {
   id          String   @id @default(cuid())
   guildId     String
+  botId       String?
   key         String
   value       String   @db.Text
   category    String   @default("general")
@@ -130,8 +135,9 @@ model Knowledge {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([guildId, key])
+  @@unique([guildId, botId, key])
   @@index([guildId])
+  @@index([botId])
   @@index([category])
 }
 
@@ -152,12 +158,82 @@ model ConversationHistory {
 model UserIgnoreList {
   id        String   @id @default(cuid())
   guildId   String
+  botId     String?
   userId    String
   ignored   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([guildId, userId])
+  @@unique([guildId, botId, userId])
   @@index([guildId])
+  @@index([botId])
   @@index([userId])
+}
+
+model Bot {
+  id                String   @id @default(cuid())
+  name              String
+  discordAppId      String   @unique
+  discordBotUserId  String?  @unique
+  encryptedToken    String   @db.Text
+  encryptedApiKey   String?  @db.Text
+  aiBaseUrl         String   @default("")
+  aiModel           String   @default("")
+  aiPersonality     String   @default("You are a helpful and friendly Discord bot assistant.")
+  aiMaxTokens       Int      @default(1000)
+  aiContextMessages Int      @default(10)
+  status            String   @default("DISABLED")
+  isMigrated        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  guildSettings GuildBotSettings[]
+
+  @@index([status])
+}
+
+model GuildBotSettings {
+  id      String  @id @default(cuid())
+  guildId String
+  botId   String
+  enabled Boolean @default(false)
+
+  // Per-guild overrides (null = inherit from Bot)
+  personalityOverride String?  @db.Text
+  responseChance     Int?
+  cooldownMs         Int?
+  replyOnlyMode      Boolean?
+  allowedChannels    String[] @default([])
+
+  // Inter-bot conversation settings
+  botToBotEnabled        Boolean @default(false)
+  maxChainDepth          Int     @default(3)
+  channelCooldownMs      Int     @default(5000)
+  circuitBreakerCount    Int     @default(10)
+  circuitBreakerWindowMs Int     @default(60000)
+  circuitBreakerPauseMs  Int     @default(300000)
+  mentionBypassMatrix    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, botId])
+  @@index([guildId])
+  @@index([botId])
+}
+
+model BotPairChance {
+  id            String   @id @default(cuid())
+  guildId       String
+  speakerBotId  String
+  targetBotId   String
+  chance        Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([guildId, speakerBotId, targetBotId])
+  @@index([guildId])
+  @@index([speakerBotId])
 }

@@ -9,6 +9,7 @@
     "dev": "node --watch src/index.js",
     "deploy": "node src/deploy-commands.js",
     "clear-global": "node src/clear-global-commands.js",
+    "gen-key": "node scripts/gen-encryption-key.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

@@ -69,6 +69,12 @@ npm install
 cp .env.example .env
 ```
 
+**Generate the multi-bot encryption key** (required for storing Discord bot tokens securely):
+```bash
+npm run gen-key
+```
+Copy the 64-character hex output into `BOT_ENCRYPTION_KEY` in your `.env`. Also set `GLOBAL_ADMIN_USER_IDS` to a comma-separated list of Discord user IDs that may manage the bot registry.
+
 Edit `.env` with your credentials:
 ```env
 DISCORD_TOKEN=your_discord_bot_token

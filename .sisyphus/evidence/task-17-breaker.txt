@@ -1,0 +1,2 @@
+11th:{"ok":false,"reason":"CIRCUIT_BREAKER_TRIPPED"}
+12th:{"ok":false,"reason":"CIRCUIT_BREAKER"}

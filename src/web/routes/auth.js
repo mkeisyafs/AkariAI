@@ -31,16 +31,31 @@ router.get('/discord', passport.authenticate('discord'));
 
 router.get(
   '/callback',
-  passport.authenticate('discord', {
-    failureRedirect: process.env.FRONTEND_URL || 'http://localhost:5173',
-  }),
-  (req, res) => {
-    const botOwnerId = process.env.BOT_OWNER_ID;
-    if (botOwnerId && req.user.id !== botOwnerId) {
-      req.logout(() => {});
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=access_denied`);
-    }
-    res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173');
+  (req, res, next) => {
+    passport.authenticate('discord', (err, user) => {
+      if (err) {
+        if (err.code === 'invalid_grant' || /invalid.*code/i.test(err.message || '')) {
+          console.warn(`OAuth: stale or reused auth code, redirecting to login`);
+          return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=session_expired`);
+        }
+        console.error('OAuth callback error:', err.message || err);
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=auth_failed`);
+      }
+      if (!user) {
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=auth_failed`);
+      }
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=auth_failed`);
+        }
+        const botOwnerId = process.env.BOT_OWNER_ID;
+        if (botOwnerId && req.user.id !== botOwnerId) {
+          req.logout(() => {});
+          return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}?error=access_denied`);
+        }
+        res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173');
+      });
+    })(req, res, next);
   }
 );
 

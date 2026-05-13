@@ -50,7 +50,9 @@ async function fetchGuildMember(guildId, userId, botToken) {
     );
     return response.data;
   } catch (error) {
-    console.error(`Error fetching member for guild ${guildId}:`, error.message);
+    if (error.response?.status !== 404) {
+      console.error(`Error fetching member for guild ${guildId}:`, error.message);
+    }
     return null;
   }
 }

@@ -8,7 +8,7 @@ import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { configurePassport } from './config/passport.js';
-import authRoutes from './routes/auth.js';
+import authRoutes, { meRouter } from './routes/auth.js';
 import guildRoutes from './routes/guilds.js';
 import moderationRoutes from './routes/moderation.js';
 import knowledgeRoutes from './routes/knowledge.js';
@@ -93,6 +93,7 @@ export function startWebServer(botManagerOrClient) {
   app.use(passport.session());
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/me', meRouter);
   app.use('/api/guilds', guildRoutes);
   app.use('/api/moderation', moderationRoutes);
   app.use('/api/guilds', knowledgeRoutes);

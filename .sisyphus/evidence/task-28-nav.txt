@@ -1,0 +1,1 @@
+web/src/components/layout/Navbar.tsx:28:              {isGlobalAdmin && (

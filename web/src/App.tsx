@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Layout from './components/layout/Layout';
+import RequireGlobalAdmin from './components/layout/RequireGlobalAdmin';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import GuildConfig from './pages/GuildConfig';
@@ -56,7 +57,7 @@ function App() {
           >
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/guild/:guildId" element={<GuildConfig />} />
-            <Route path="/admin/bots" element={<AdminBots />} />
+            <Route path="/admin/bots" element={<RequireGlobalAdmin><AdminBots /></RequireGlobalAdmin>} />
           </Route>
         </Routes>
       </AuthProvider>

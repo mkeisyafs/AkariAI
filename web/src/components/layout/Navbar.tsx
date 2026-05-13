@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { LogOut, Bot } from 'lucide-react';
+import { useSession } from '../../hooks/useSession';
+import { LogOut, Bot, Shield } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { isGlobalAdmin } = useSession();
 
   const handleLogout = async () => {
     await logout();
@@ -23,6 +25,16 @@ export default function Navbar() {
 
           {user && (
             <div className="flex items-center space-x-4">
+              {isGlobalAdmin && (
+                <Link
+                  to="/admin/bots"
+                  data-testid="nav-admin-bots"
+                  className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-discord-gray transition"
+                >
+                  <Shield className="h-4 w-4" />
+                  <span>Admin · Bots</span>
+                </Link>
+              )}
               <div className="flex items-center space-x-2">
                 {user.avatar ? (
                   <img

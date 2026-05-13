@@ -177,3 +177,24 @@ For V1 reviewers: this is correct behavior.
 - The reservation commit/release contract is idempotent — calling `release()` after `commit()` (or vice versa) is a no-op thanks to the `state.reservedBy === uuid` guard. So every async failure path can `release()` without worrying about whether a commit already happened.
 - External-bot filter is the combo: `message.author.bot === true` AND `!botManager.isOurBot(senderId)`. This is NOT the same as just `!isHuman && !ourBot` — the `isHuman` check is `!message.author.bot`, so external bots are already in the `!isHuman` branch when we fall through.
 - The rewritten handler is 222 LOC (vs. ~90 before), but the growth is almost entirely linear new-feature code (classification, bot-to-bot branch, loopGuard integration, cross-bot history, structured logging) — no new abstraction layers were introduced.
+
+## 2026-05-13 — Task T24 (Admin /bots React page)
+
+- React 19 + eslint-plugin-react-hooks v6 enforces `react-hooks/set-state-in-effect` (new rule). Reset-on-open pattern (`useEffect(() => { if (open) setState(reset) }, [open])`) is flagged. Cleaner fix: render the modal conditionally so mount/unmount handles lifecycle, or use `key={bot.id}` with an inner component that initializes state from props on first render (no effect needed). This avoids the rule entirely and is more correct — state is derived from props only at mount.
+- `Modal.tsx` helper: ESC-to-close + click-outside + focus first element. Focus trap is deferred — the simple `autoFocus` on first input is enough for T24. A proper trap would use `@headlessui/react` (already in deps) but introduced scope creep.
+- Tailwind v4 with `@theme { --color-discord-* }` — utility classes like `bg-discord-gray` work out of the box without tailwind.config.js. The config file is almost empty (just plugins import).
+- Hooks use object-return style: `const { bots, loading, createBot, ... } = useBots()`. Same pattern used by `useGuildConfig`. Matches T25 learning note #1.
+- Testids on dynamic elements: `bot-row-${bot.id}`, `bot-action-edit-${bot.id}` — pattern used consistently so Playwright can target specific rows. Grep for testids needs to allow template-string syntax (`data-testid={...}`) AND prop-pass syntax (`testId="..."` via Modal wrapper).
+- Secret handling: every token/apiKey input is `type="password"` + `autoComplete="new-password"` + `spellCheck={false}`. After `await onCreate(...)`, the component calls `reset()` which clears the token from state immediately. No token is stored in `localStorage`/`sessionStorage` — confirmed via `grep -rE "(localStorage|sessionStorage)\.[gs]etItem.*[Tt]oken"` = no matches.
+- Delete confirmation: compares `confirmText === bot.name` exactly. Submit button is disabled until match. No fuzzy match, no case-insensitive — intentional to force full attention.
+- Lint status: repo has 50 pre-existing errors unrelated to T24/T25 (set-state-in-effect violations in older hooks + `no-explicit-any` in older files). `npx eslint web/src/components/admin/ web/src/pages/AdminBots.tsx` (new code only) = exit 0, clean. Documented in evidence.
+- `npm install` on this workstation is slow (~4 min for first cold install). If running from a fresh clone/CI, expect the web install step to dominate wall time.
+
+## 2026-05-13 — Task T28 (global admin nav + route guard + /api/me)
+
+- `src/web/routes/auth.js` mounts at `/api/auth`, but `/api/me` needs to be top-level (matches what `useGlobalAdmin.ts` from T25 already calls). Solution: export a second `meRouter` from auth.js and mount it at `/api/me` in `server.js`. Keeps auth-adjacent routes co-located without forcing the caller to hit `/api/auth/me`.
+- `req.user?.id` alone isn't enough for the auth gate — passport attaches `req.user` during session deserialize, so use `req.isAuthenticated() && req.user?.id` (mirrors what `/api/auth/user` does on line 24).
+- Shared session cache pattern: module-scope `cached` + `inflight` Promise + `subscribers` Set. First component triggers fetch, subsequent mounts-in-flight piggy-back on the existing promise, already-resolved reads get the cache synchronously. Avoids N copies of /api/me when Navbar+RequireGlobalAdmin+AdminBots all mount together.
+- `useGlobalAdmin` → thin wrapper over `useSession` preserves T24's existing API (`{ isGlobalAdmin, loading }`) while centralizing the fetch. AdminBots.tsx didn't need to change.
+- App.tsx route wrap: `<Route path=... element={<RequireGlobalAdmin><AdminBots/></RequireGlobalAdmin>} />` — React Router v6 element composition. The outer ProtectedRoute already ensures `user` exists, so RequireGlobalAdmin only checks the admin flag (loading state for the admin check, not auth).
+- Nav link uses `lucide-react` `Shield` icon + `data-testid="nav-admin-bots"` for QA. Conditional render via `{isGlobalAdmin && (...)}` — React renders `false` as nothing, no empty-div flash.

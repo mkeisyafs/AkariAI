@@ -1,0 +1,2 @@
+5:import RequireGlobalAdmin from './components/layout/RequireGlobalAdmin';
+60:            <Route path="/admin/bots" element={<RequireGlobalAdmin><AdminBots /></RequireGlobalAdmin>} />

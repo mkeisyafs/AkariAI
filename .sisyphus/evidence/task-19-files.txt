@@ -1,0 +1,2 @@
+/home/administrator/AkariAI/src/web/middleware/globalAdmin.js
+/home/administrator/AkariAI/src/web/routes/admin/bots.js

@@ -1,0 +1,3 @@
+src/web/middleware/globalAdmin.js OK
+src/web/routes/admin/bots.js OK
+src/web/server.js OK

@@ -91,3 +91,14 @@ For V1 reviewers: this is correct behavior.
 - Spec ordering trap: in `tryReserveBotReply`, the `RESERVED` check must come **before** the `isHumanInitiated` branch — humans bypass chain/cooldown/breaker but NOT concurrency. The plan's text orders it as "step 2", but moving it to the top simplifies control flow and matches the QA scenario `T17-human-bypass` which calls `trip.release()` before the human attempt (proves no leftover reservation gates the human path).
 - Circuit breaker uses two distinct refusal reasons: `CIRCUIT_BREAKER_TRIPPED` (the call that exceeded the threshold) and `CIRCUIT_BREAKER` (subsequent calls during the lockout window). QA evidence: 11th=`CIRCUIT_BREAKER_TRIPPED`, 12th=`CIRCUIT_BREAKER`.
 - `getChannelState` must clone `botReplyTimestamps` (not return the live array) — otherwise external callers can mutate internal pruning state. Same hazard as exposing the Map.
+
+## 2026-05-13 — Task T19 (admin REST API for bots)
+
+- Express style in this repo: `import { Router } from 'express'` then `const router = Router()` — matches auth.js / guilds.js / knowledge.js. Don't use `express.Router()` default-import style.
+- `botRepository.updateBot` already accepts `{ token }` and `{ aiApiKey }` in its patch object and handles re-encryption inside — the admin route should pass these as-is, NOT encrypt at the route layer. This keeps the encryption boundary in one place (T1).
+- `discord.js` `REST` error contract: on bad token, thrown error has `status: 401` (not a fetch-style rejection). Treat transient network failures (`status` missing) as 503, not 400 — otherwise a flaky network during bot creation falsely blames the admin's token.
+- `botManager.connectBot` is safe to fire-and-forget because its own contract is "never throw on recoverable failure — mutate status and return". Wrap in `Promise.resolve().then(...).catch(log)` to be explicit about non-blocking intent; a bare un-awaited call works too but reads as a bug to reviewers.
+- Delete cascade: GuildBotSettings has `onDelete: Cascade` at the Prisma level, so `prisma.bot.delete()` inside a `$transaction([...])` handles that table automatically. The explicit `updateMany` calls null-out history tables (Knowledge/UserIgnoreList/UserWarning/ModerationLog) to preserve audit trails; `botPairChance.deleteMany` with `OR` covers both speaker AND target references.
+- Import smoke test needs both `DATABASE_URL` AND `BOT_ENCRYPTION_KEY` because `src/database/prisma.js` loads transitively via `botRepository.js` → `encryption.js` which eagerly validates the key. A 64-hex zero-string works as a dummy.
+- Stack length from `router.stack` counts both middleware AND routes: 1 middleware + 7 routes = 8 (the plan hint of "≥ 7" covered both scenarios).
+- `safeLog` wraps the error message string (which can contain token fragments from Discord's error body); it's idempotent on non-token strings. Always wrap `err.message` before logging in routes that handle raw tokens.

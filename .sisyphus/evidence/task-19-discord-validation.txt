@@ -1,0 +1,2 @@
+50:  const rest = new REST({ version: '10' }).setToken(token);
+52:    const me = await rest.get('/users/@me');

@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.js';
 import guildRoutes from './routes/guilds.js';
 import moderationRoutes from './routes/moderation.js';
 import knowledgeRoutes from './routes/knowledge.js';
+import adminBotsRouter from './routes/admin/bots.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,6 +66,7 @@ export function startWebServer(discordClient) {
   app.use('/api/guilds', guildRoutes);
   app.use('/api/moderation', moderationRoutes);
   app.use('/api/guilds', knowledgeRoutes);
+  app.use('/api/admin/bots', adminBotsRouter);
 
   app.get('/api/health', (req, res) => {
     res.json({

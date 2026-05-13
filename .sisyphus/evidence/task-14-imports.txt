@@ -1,0 +1,6 @@
+guildMemberAdd:function
+guildMemberRemove:function
+interactionCreate:function
+messageCreate:function
+messageReactionAdd:function
+ready:function

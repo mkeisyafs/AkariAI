@@ -1,6 +1,10 @@
 import { REST, Routes } from 'discord.js';
 import { config } from 'dotenv';
 
+// One-off migration utility: purges legacy global slash commands from the
+// primary bot's Discord application. After the multi-bot migration, all
+// commands are deployed per-guild via src/services/slashCommandDeployer.js,
+// and legacy global registrations would otherwise double up in guilds.
 config();
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);

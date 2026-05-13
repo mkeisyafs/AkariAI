@@ -42,8 +42,6 @@ async function startBot() {
 
 startBot();
 
-export default client;
-
 process.on('unhandledRejection', (error) => {
   console.error('Unhandled promise rejection:', error);
 });

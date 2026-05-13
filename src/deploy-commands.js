@@ -1,44 +1,52 @@
-import { REST, Routes } from 'discord.js';
 import { config } from 'dotenv';
-import { readdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { assertKeyValid } from './utils/encryption.js';
+import { connectDatabase, disconnectDatabase } from './database/connection.js';
+import botRepository from './database/repositories/botRepository.js';
+import { loadCommandsForDeploy } from './handlers/commandHandler.js';
+import { deployAllBotsToTheirGuilds } from './services/slashCommandDeployer.js';
 
 config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+async function main() {
+  assertKeyValid();
+  await connectDatabase();
 
-const commands = [];
-const commandsPath = join(__dirname, 'commands');
-const commandFolders = readdirSync(commandsPath);
+  const bots = await botRepository.listBots({ includeDisabled: false });
+  const enabled = bots.filter((b) => b.status === 'ENABLED');
 
-for (const folder of commandFolders) {
-  const folderPath = join(commandsPath, folder);
-  const commandFiles = readdirSync(folderPath).filter(file => file.endsWith('.js'));
+  for (const bot of enabled) {
+    await loadCommandsForDeploy(bot.id);
+  }
 
-  for (const file of commandFiles) {
-    const filePath = join(folderPath, file);
-    const command = await import(`file://${filePath}`);
-    if ('data' in command.default && 'execute' in command.default) {
-      commands.push(command.default.data.toJSON());
+  console.log(
+    `Deploying slash commands for ${enabled.length} enabled bot(s) to their enabled guilds...`
+  );
+
+  const summary = await deployAllBotsToTheirGuilds();
+
+  console.log(
+    `✅ Deploy complete — deployed=${summary.deployed} failed=${summary.failed} ` +
+      `skipped=${summary.skipped} total=${summary.total}`
+  );
+
+  if (summary.failed > 0) {
+    for (const r of summary.results) {
+      if (r.status === 'failed') {
+        console.error(`  ✗ bot=${r.botId} guild=${r.guildId} error=${r.error}`);
+      }
     }
   }
+
+  await disconnectDatabase();
+  process.exit(summary.failed > 0 ? 1 : 0);
 }
 
-const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-
-(async () => {
+main().catch(async (err) => {
+  console.error('Error deploying commands:', err && err.message ? err.message : err);
   try {
-    console.log(`Started refreshing ${commands.length} application (/) commands.`);
-
-    const data = await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      { body: commands },
-    );
-
-    console.log(`✅ Successfully reloaded ${data.length} application (/) commands.`);
-  } catch (error) {
-    console.error('Error deploying commands:', error);
+    await disconnectDatabase();
+  } catch {
+    /* ignore */
   }
-})();
+  process.exit(1);
+});

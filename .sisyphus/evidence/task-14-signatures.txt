@@ -1,0 +1,12 @@
+=== src/events/guildMemberAdd.js ===
+6:  async execute(client, botId, member) {
+=== src/events/guildMemberRemove.js ===
+6:  async execute(client, botId, member) {
+=== src/events/interactionCreate.js ===
+9:  async execute(client, botId, interaction) {
+=== src/events/messageCreate.js ===
+11:  async execute(client, botId, message) {
+=== src/events/messageReactionAdd.js ===
+5:  async execute(client, botId, reaction, user) {
+=== src/events/ready.js ===
+7:  async execute(client, botId) {

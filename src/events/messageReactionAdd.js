@@ -2,7 +2,7 @@ import { getGuildConfig } from '../utils/configManager.js';
 
 export default {
   name: 'messageReactionAdd',
-  async execute(reaction, user) {
+  async execute(client, botId, reaction, user) {
     if (user.bot) return;
 
     if (reaction.partial) {

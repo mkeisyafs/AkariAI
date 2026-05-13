@@ -1,0 +1,3 @@
+src/utils/commandSync.js:45:      Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
+src/utils/commandSync.js:62:      Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
+src/services/slashCommandDeployer.js:42:      Routes.applicationGuildCommands(bot.discordAppId, guildId),

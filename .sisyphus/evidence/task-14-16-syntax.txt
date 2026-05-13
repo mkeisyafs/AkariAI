@@ -1,0 +1,11 @@
+src/handlers/eventHandler.js OK
+src/handlers/commandHandler.js OK
+src/services/slashCommandDeployer.js OK
+src/events/guildMemberAdd.js OK
+src/events/guildMemberRemove.js OK
+src/events/interactionCreate.js OK
+src/events/messageCreate.js OK
+src/events/messageReactionAdd.js OK
+src/events/ready.js OK
+src/deploy-commands.js OK
+src/clear-global-commands.js OK

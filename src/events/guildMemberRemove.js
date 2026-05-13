@@ -3,7 +3,7 @@ import { getGuildConfig } from '../utils/configManager.js';
 
 export default {
   name: 'guildMemberRemove',
-  async execute(member) {
+  async execute(client, botId, member) {
     const config = await getGuildConfig(member.guild.id);
 
     if (config.goodbyeEnabled && config.goodbyeChannelId) {

@@ -6,17 +6,16 @@ const commandUserCooldowns = new Collection();
 
 export default {
   name: 'interactionCreate',
-  async execute(interaction) {
+  async execute(client, botId, interaction) {
     if (interaction.isChatInputCommand()) {
-      await handleCommand(interaction);
+      await handleCommand(interaction, botId);
     } else if (interaction.isButton()) {
       await handleButton(interaction);
     }
   },
 };
 
-async function handleCommand(interaction) {
-  const botId = interaction.client.user?.id || '_default_legacy';
+async function handleCommand(interaction, botId) {
   const command = getBotCommands(botId).get(interaction.commandName);
 
   if (!command) {

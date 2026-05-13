@@ -1,4 +1,6 @@
 import { getGuildConfig } from '../utils/configManager.js';
+import guildBotSettingsRepository from '../database/repositories/guildBotSettingsRepository.js';
+import botRepository from '../database/repositories/botRepository.js';
 import { generateAIResponseWithKnowledge } from '../services/aiService.js';
 import { checkToxicity } from '../services/moderationService.js';
 import userIgnoreListRepository from '../database/repositories/userIgnoreListRepository.js';
@@ -6,59 +8,65 @@ import { getCooldown, setCooldown } from '../services/botCooldowns.js';
 
 export default {
   name: 'messageCreate',
-  async execute(message) {
+  async execute(client, botId, message) {
     if (message.author.bot) return;
     if (!message.guild) return;
 
-    const config = await getGuildConfig(message.guild.id);
+    const guildId = message.guild.id;
 
-    if (config.moderationEnabled) {
-      await checkToxicity(message, config);
+    const guildConfig = await getGuildConfig(guildId);
+    if (guildConfig.moderationEnabled) {
+      await checkToxicity(message, guildConfig);
     }
 
-    if (!config.aiEnabled) {
-      return;
-    }
+    const effective = await guildBotSettingsRepository.resolveEffectiveConfig(guildId, botId);
+    if (!effective) return;
+    if (!effective.enabled) return;
 
-    const isIgnored = await userIgnoreListRepository.isUserIgnored(
-      message.guild.id,
-      message.author.id
-    );
+    const isIgnored = await userIgnoreListRepository.isUserIgnored(guildId, message.author.id);
+    if (isIgnored) return;
 
-    if (isIgnored) {
-      return;
-    }
+    const isMentioned = message.mentions.has(client.user);
+    const isReply = Boolean(message.reference) && message.type === 19;
 
-    const isMentioned = message.mentions.has(message.client.user);
-    const isReply = message.reference && message.type === 19;
-
-    if (config.aiReplyOnlyMode) {
-      if (!isMentioned && !isReply) {
-        return;
-      }
+    if (effective.replyOnlyMode) {
+      if (!isMentioned && !isReply) return;
     } else {
-      const shouldRespond = isMentioned || Math.random() * 100 < config.aiResponseChance;
+      const shouldRespond = isMentioned || Math.random() * 100 < effective.responseChance;
       if (!shouldRespond) return;
     }
 
-    if (config.aiAllowedChannels.length > 0 &&
-        !config.aiAllowedChannels.includes(message.channel.id)) {
+    if (
+      Array.isArray(effective.allowedChannels) &&
+      effective.allowedChannels.length > 0 &&
+      !effective.allowedChannels.includes(message.channel.id)
+    ) {
       return;
     }
 
-    const botId = message.client.user.id;
-    const lastResponse = getCooldown(botId, message.guild.id, message.channel.id);
-
-    if (lastResponse && Date.now() - lastResponse < config.aiCooldown) {
+    const lastResponse = getCooldown(botId, guildId, message.channel.id);
+    if (lastResponse && Date.now() - lastResponse < effective.cooldownMs) {
       return;
     }
+
+    const aiApiKey = await botRepository.getDecryptedApiKey(botId);
+
+    const aiContext = {
+      guildId,
+      aiPersonality: effective.aiPersonality,
+      aiBaseUrl: effective.aiBaseUrl,
+      aiModel: effective.aiModel,
+      aiApiKey,
+      aiMaxTokens: effective.aiMaxTokens,
+      aiContextMessages: effective.aiContextMessages,
+    };
 
     try {
       await message.channel.sendTyping();
 
       const response = await generateAIResponseWithKnowledge(
         message.content,
-        config,
+        aiContext,
         message.channel.id,
         message.author.id,
         message.author.username
@@ -66,7 +74,7 @@ export default {
 
       if (response) {
         await message.reply(response);
-        setCooldown(botId, message.guild.id, message.channel.id, Date.now());
+        setCooldown(botId, guildId, message.channel.id, Date.now());
       }
     } catch (error) {
       console.error('Error generating AI response:', error);

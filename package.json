@@ -8,7 +8,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "deploy": "node src/deploy-commands.js",
-    "clear-global": "node src/clear-global-commands.js",
+    "clear-global": "node scripts/clear-global-commands.js",
     "gen-key": "node scripts/gen-encryption-key.js",
     "migrate:multi-bot": "node scripts/backfill-multi-bot.js",
     "db:generate": "prisma generate",

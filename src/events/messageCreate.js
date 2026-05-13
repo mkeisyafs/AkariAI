@@ -67,9 +67,15 @@ export default {
       const response = await generateAIResponseWithKnowledge(
         message.content,
         aiContext,
-        message.channel.id,
-        message.author.id,
-        message.author.username
+        {
+          botId,
+          client,
+          channelId: message.channel.id,
+          userId: message.author.id,
+          username: message.author.username,
+          senderIsOurBot: false,
+          senderBotName: null,
+        }
       );
 
       if (response) {

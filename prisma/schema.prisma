@@ -144,6 +144,7 @@ model Knowledge {
 model ConversationHistory {
   id        String   @id @default(cuid())
   guildId   String
+  botId     String?
   channelId String
   userId    String
   username  String
@@ -153,6 +154,7 @@ model ConversationHistory {
 
   @@index([guildId, channelId, timestamp])
   @@index([channelId])
+  @@index([botId, channelId, timestamp])
 }
 
 model UserIgnoreList {

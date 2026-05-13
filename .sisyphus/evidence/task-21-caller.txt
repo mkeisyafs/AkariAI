@@ -1,0 +1,8 @@
+67:      const response = await generateAIResponseWithKnowledge(
+11:  async execute(client, botId, message) {
+22:    const effective = await guildBotSettingsRepository.resolveEffectiveConfig(guildId, botId);
+47:    const lastResponse = getCooldown(botId, guildId, message.channel.id);
+52:    const aiApiKey = await botRepository.getDecryptedApiKey(botId);
+71:          botId,
+76:          senderIsOurBot: false,
+83:        setCooldown(botId, guildId, message.channel.id, Date.now());

@@ -1,0 +1,5 @@
+addMessage.length:7
+getRecentMessages.length:3
+addCrossBotMessage:function
+addCrossBotMessage.length:6
+clearChannelHistory.length:2

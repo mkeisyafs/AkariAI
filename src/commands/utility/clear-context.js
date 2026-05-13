@@ -7,11 +7,11 @@ export default {
     .setDescription('Clear conversation history for this channel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
-  async execute(interaction) {
+  async execute(interaction, botId) {
     try {
       await interaction.deferReply({ ephemeral: true });
 
-      await clearChannelContext(interaction.channel.id);
+      await clearChannelContext(botId, interaction.channel.id);
 
       await interaction.editReply({
         content: '✅ Conversation history cleared for this channel. The bot will start fresh.',

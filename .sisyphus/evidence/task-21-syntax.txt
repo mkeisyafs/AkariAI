@@ -1,0 +1,5 @@
+src/database/repositories/conversationHistoryRepository.js OK
+src/services/aiService.js OK
+src/events/messageCreate.js OK
+src/events/interactionCreate.js OK
+src/commands/utility/clear-context.js OK

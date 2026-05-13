@@ -5,7 +5,18 @@ import conversationHistoryRepository from '../database/repositories/conversation
 
 const cache = new NodeCache({ stdTTL: 300 });
 
-export async function generateAIResponse(userMessage, config, channelId, userId, username, knowledgeContext = null) {
+export async function generateAIResponse(userMessage, config, context) {
+  const {
+    botId = null,
+    client = null,
+    channelId,
+    userId,
+    username,
+    knowledgeContext = null,
+    senderIsOurBot = false,
+    senderBotName = null,
+  } = context || {};
+
   try {
     let systemContent = config.aiPersonality;
 
@@ -14,7 +25,7 @@ export async function generateAIResponse(userMessage, config, channelId, userId,
     }
 
     const contextLimit = config.aiContextMessages || 10;
-    const recentMessages = await conversationHistoryRepository.getRecentMessages(channelId, contextLimit);
+    const recentMessages = await conversationHistoryRepository.getRecentMessages(botId, channelId, contextLimit);
 
     const messages = [
       {
@@ -30,9 +41,13 @@ export async function generateAIResponse(userMessage, config, channelId, userId,
       });
     });
 
+    const currentUserContent = senderIsOurBot && senderBotName
+      ? `[${senderBotName}]: ${userMessage}`
+      : `${username}: ${userMessage}`;
+
     messages.push({
       role: 'user',
-      content: `${username}: ${userMessage}`,
+      content: currentUserContent,
     });
 
     const response = await axios.post(
@@ -54,16 +69,29 @@ export async function generateAIResponse(userMessage, config, channelId, userId,
 
     const aiResponse = response.data.choices[0].message.content;
 
-    await conversationHistoryRepository.addMessage(
-      config.guildId,
-      channelId,
-      userId,
-      username,
-      'user',
-      userMessage
-    );
+    if (senderIsOurBot && senderBotName) {
+      await conversationHistoryRepository.addCrossBotMessage(
+        botId,
+        config.guildId,
+        channelId,
+        userId,
+        senderBotName,
+        userMessage
+      );
+    } else {
+      await conversationHistoryRepository.addMessage(
+        botId,
+        config.guildId,
+        channelId,
+        userId,
+        username,
+        'user',
+        userMessage
+      );
+    }
 
     await conversationHistoryRepository.addMessage(
+      botId,
       config.guildId,
       channelId,
       'bot',
@@ -79,13 +107,13 @@ export async function generateAIResponse(userMessage, config, channelId, userId,
   }
 }
 
-export async function generateAIResponseWithKnowledge(userMessage, config, channelId, userId, username) {
+export async function generateAIResponseWithKnowledge(userMessage, config, context) {
   const allKnowledge = await knowledgeService.getAllKnowledge(config.guildId);
   const knowledgeContext = knowledgeService.buildKnowledgeContext(allKnowledge);
 
-  return generateAIResponse(userMessage, config, channelId, userId, username, knowledgeContext);
+  return generateAIResponse(userMessage, config, { ...context, knowledgeContext });
 }
 
-export async function clearChannelContext(channelId) {
-  return await conversationHistoryRepository.clearChannelHistory(channelId);
+export async function clearChannelContext(botId, channelId) {
+  return await conversationHistoryRepository.clearChannelHistory(botId, channelId);
 }

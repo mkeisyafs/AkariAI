@@ -59,7 +59,7 @@ async function handleCommand(interaction, botId) {
   setTimeout(() => timestamps.delete(interaction.user.id), cooldownAmount);
 
   try {
-    await command.execute(interaction);
+    await command.execute(interaction, botId);
   } catch (error) {
     console.error(`Error executing ${interaction.commandName}:`, error);
     const reply = { content: '❌ There was an error executing this command.', ephemeral: true };

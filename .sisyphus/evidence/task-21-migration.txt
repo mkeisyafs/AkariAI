@@ -1,0 +1,3 @@
+prisma/migrations/20260513152300_conversation_history_bot_id/migration.sql
+ALTER TABLE "ConversationHistory" ADD COLUMN     "botId" TEXT;
+CREATE INDEX "ConversationHistory_botId_channelId_timestamp_idx" ON "ConversationHistory"("botId", "channelId", "timestamp");

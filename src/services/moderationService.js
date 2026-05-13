@@ -62,6 +62,7 @@ export async function checkToxicity(message, config) {
     }
 
     await logModeration(
+      message.client,
       message.guild.id,
       message.author.id,
       message.client.user.id,
@@ -101,7 +102,7 @@ export async function warnUser(guildId, userId, moderatorId, reason) {
   return warningCount;
 }
 
-export async function logModeration(guildId, userId, moderatorId, action, reason, config) {
+export async function logModeration(client, guildId, userId, moderatorId, action, reason, config) {
   await moderationLogRepository.create({
     guildId,
     userId,
@@ -112,7 +113,10 @@ export async function logModeration(guildId, userId, moderatorId, action, reason
 
   if (config.moderationLogChannelId) {
     try {
-      const { default: client } = await import('../index.js');
+      if (!client) {
+        console.warn('logModeration: client not provided; skipping channel log');
+        return;
+      }
       const guild = client.guilds.cache.get(guildId);
       if (!guild) return;
 

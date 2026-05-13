@@ -1,5 +1,8 @@
-import { PermissionFlagsBits } from 'discord.js';
+import { PermissionFlagsBits, Collection } from 'discord.js';
 import { getGuildConfig } from '../utils/configManager.js';
+import { getBotCommands } from '../services/botCommands.js';
+
+const commandUserCooldowns = new Collection();
 
 export default {
   name: 'interactionCreate',
@@ -13,18 +16,19 @@ export default {
 };
 
 async function handleCommand(interaction) {
-  const command = interaction.client.commands.get(interaction.commandName);
+  const botId = interaction.client.user?.id || '_default_legacy';
+  const command = getBotCommands(botId).get(interaction.commandName);
 
   if (!command) {
     return interaction.reply({ content: '❌ Command not found.', ephemeral: true });
   }
 
   const config = await getGuildConfig(interaction.guild.id);
-  
+
   if (config.disabledCommands && config.disabledCommands.includes(interaction.commandName)) {
-    return interaction.reply({ 
-      content: '❌ This command has been disabled by server administrators.', 
-      ephemeral: true 
+    return interaction.reply({
+      content: '❌ This command has been disabled by server administrators.',
+      ephemeral: true
     });
   }
 
@@ -32,14 +36,12 @@ async function handleCommand(interaction) {
     return interaction.reply({ content: '❌ This command requires Administrator permission.', ephemeral: true });
   }
 
-  const { cooldowns } = interaction.client;
-
-  if (!cooldowns.has(command.data.name)) {
-    cooldowns.set(command.data.name, new Map());
+  if (!commandUserCooldowns.has(command.data.name)) {
+    commandUserCooldowns.set(command.data.name, new Map());
   }
 
   const now = Date.now();
-  const timestamps = cooldowns.get(command.data.name);
+  const timestamps = commandUserCooldowns.get(command.data.name);
   const cooldownAmount = (command.cooldown || 3) * 1000;
 
   if (timestamps.has(interaction.user.id)) {

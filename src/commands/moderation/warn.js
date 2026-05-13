@@ -33,6 +33,7 @@ export default {
 
       const config = await getGuildConfig(interaction.guild.id);
       await logModeration(
+        interaction.client,
         interaction.guild.id,
         user.id,
         interaction.user.id,

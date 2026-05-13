@@ -28,8 +28,10 @@ export default async function handleVerification(interaction) {
   }
 }
 
-export async function sendVerificationMessage(guildId, channelId, message, emoji, buttonText, method) {
-  const { default: client } = await import('../index.js');
+export async function sendVerificationMessage(client, guildId, channelId, message, emoji, buttonText, method) {
+  if (!client) {
+    throw new Error('sendVerificationMessage: client is required');
+  }
 
   const guild = client.guilds.cache.get(guildId);
   if (!guild) {

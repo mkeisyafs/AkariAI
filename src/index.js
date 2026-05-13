@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Collection, Partials } from 'discord.js';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from 'dotenv';
 import { connectDatabase } from './database/connection.js';
 import { loadCommands } from './handlers/commandHandler.js';
@@ -18,9 +18,6 @@ const client = new Client({
   ],
   partials: [Partials.GuildMember, Partials.Message, Partials.Channel, Partials.Reaction],
 });
-
-client.commands = new Collection();
-client.cooldowns = new Collection();
 
 async function startBot() {
   try {

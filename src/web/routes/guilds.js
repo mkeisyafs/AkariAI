@@ -313,7 +313,8 @@ router.post('/:guildId/verification/send', requireAuth, requireWhitelist, requir
     }
 
     const { sendVerificationMessage } = await import('../../utils/verification.js');
-    await sendVerificationMessage(guildId, channelId, message, emoji, buttonText, method);
+    const discordClient = req.app.locals.discordClient;
+    await sendVerificationMessage(discordClient, guildId, channelId, message, emoji, buttonText, method);
 
     res.json({ success: true, message: 'Verification message sent' });
   } catch (error) {

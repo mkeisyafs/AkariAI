@@ -22,6 +22,8 @@ export function startWebServer(discordClient) {
   const PORT = process.env.WEB_PORT || 3000;
   const isProduction = process.env.NODE_ENV === 'production';
 
+  app.locals.discordClient = discordClient;
+
   app.use(helmet({
     contentSecurityPolicy: false,
     hsts: false,

@@ -87,3 +87,74 @@ export interface Warning {
   timestamp: string;
   userWarningId: string;
 }
+
+// ─── Multi-Bot System (T25) ────────────────────────────────────────────────
+
+export type BotStatus = 'DISABLED' | 'ENABLED' | 'TOKEN_INVALID' | 'UNHEALTHY';
+
+export interface Bot {
+  id: string;
+  name: string;
+  discordAppId: string;
+  discordBotUserId: string | null;
+  aiBaseUrl: string;
+  aiModel: string;
+  aiPersonality: string;
+  aiMaxTokens: number;
+  aiContextMessages: number;
+  status: BotStatus;
+  isMigrated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBotInput {
+  name: string;
+  discordAppId: string;
+  token: string;
+  aiBaseUrl?: string;
+  aiModel?: string;
+  aiApiKey?: string;
+  aiPersonality?: string;
+  aiMaxTokens?: number;
+  aiContextMessages?: number;
+}
+
+export interface UpdateBotInput {
+  name?: string;
+  aiBaseUrl?: string;
+  aiModel?: string;
+  aiPersonality?: string;
+  aiMaxTokens?: number;
+  aiContextMessages?: number;
+}
+
+export interface GuildBotSettings {
+  id: string;
+  guildId: string;
+  botId: string;
+  enabled: boolean;
+  personalityOverride: string | null;
+  responseChance: number | null;
+  cooldownMs: number | null;
+  replyOnlyMode: boolean | null;
+  allowedChannels: string[];
+  botToBotEnabled: boolean;
+  maxChainDepth: number;
+  channelCooldownMs: number;
+  circuitBreakerCount: number;
+  circuitBreakerWindowMs: number;
+  circuitBreakerPauseMs: number;
+  mentionBypassMatrix: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GuildBotEntry {
+  bot: Pick<Bot, 'id' | 'name' | 'discordAppId' | 'discordBotUserId' | 'status'>;
+  settings: GuildBotSettings | null;
+  presentInGuild: boolean;
+}
+
+// PairMatrix: { [speakerBotId]: { [targetBotId]: chance 0–100 } }
+export type PairMatrix = Record<string, Record<string, number>>;

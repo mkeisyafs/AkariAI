@@ -5,6 +5,7 @@ import Layout from './components/layout/Layout';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import GuildConfig from './pages/GuildConfig';
+import AdminBots from './pages/AdminBots';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -55,6 +56,7 @@ function App() {
           >
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/guild/:guildId" element={<GuildConfig />} />
+            <Route path="/admin/bots" element={<AdminBots />} />
           </Route>
         </Routes>
       </AuthProvider>

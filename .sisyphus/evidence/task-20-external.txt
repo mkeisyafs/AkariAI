@@ -1,0 +1,10 @@
+36:    let isOurBot = false;
+41:      if (botManager.isOurBot(senderId)) {
+42:        senderBotId = botManager.getBotIdByUserId(senderId);
+44:          isOurBot = true;
+52:      if (!isOurBot) return;
+55:    if (isOurBot && senderBot && message.content) {
+114:    } else if (isOurBot) {
+151:        isCrossBot: isOurBot,
+181:      senderIsOurBot: isOurBot,
+215:        isCrossBot: isOurBot,

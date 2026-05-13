@@ -1,57 +1,168 @@
 import { getGuildConfig } from '../utils/configManager.js';
 import guildBotSettingsRepository from '../database/repositories/guildBotSettingsRepository.js';
 import botRepository from '../database/repositories/botRepository.js';
+import botPairChanceRepository from '../database/repositories/botPairChanceRepository.js';
+import conversationHistoryRepository from '../database/repositories/conversationHistoryRepository.js';
+import userIgnoreListRepository from '../database/repositories/userIgnoreListRepository.js';
 import { generateAIResponseWithKnowledge } from '../services/aiService.js';
 import { checkToxicity } from '../services/moderationService.js';
-import userIgnoreListRepository from '../database/repositories/userIgnoreListRepository.js';
 import { getCooldown, setCooldown } from '../services/botCooldowns.js';
+import botManager from '../services/botManager.js';
+import loopGuard from '../services/loopGuard.js';
+
+function log(event, payload) {
+  try {
+    console.log(JSON.stringify({ ts: new Date().toISOString(), level: 'info', event, ...payload }));
+  } catch {
+    /* swallow */
+  }
+}
 
 export default {
   name: 'messageCreate',
   async execute(client, botId, message) {
-    if (message.author.bot) return;
     if (!message.guild) return;
+    if (message.system) return;
+    if (client.user && message.author.id === client.user.id) return;
 
     const guildId = message.guild.id;
-
-    const guildConfig = await getGuildConfig(guildId);
-    if (guildConfig.moderationEnabled) {
-      await checkToxicity(message, guildConfig);
-    }
+    const channelId = message.channel.id;
 
     const effective = await guildBotSettingsRepository.resolveEffectiveConfig(guildId, botId);
-    if (!effective) return;
-    if (!effective.enabled) return;
+    if (!effective || !effective.enabled) return;
 
-    const isIgnored = await userIgnoreListRepository.isUserIgnored(guildId, message.author.id);
-    if (isIgnored) return;
+    const senderId = message.author.id;
+    const isHuman = !message.author.bot;
+    let isOurBot = false;
+    let senderBotId = null;
+    let senderBot = null;
 
-    const isMentioned = message.mentions.has(client.user);
-    const isReply = Boolean(message.reference) && message.type === 19;
+    if (!isHuman) {
+      if (botManager.isOurBot(senderId)) {
+        senderBotId = botManager.getBotIdByUserId(senderId);
+        if (senderBotId && senderBotId !== botId) {
+          isOurBot = true;
+          try {
+            senderBot = await botRepository.getBotById(senderBotId);
+          } catch {
+            senderBot = null;
+          }
+        }
+      }
+      if (!isOurBot) return;
+    }
 
-    if (effective.replyOnlyMode) {
-      if (!isMentioned && !isReply) return;
+    if (isOurBot && senderBot && message.content) {
+      try {
+        await conversationHistoryRepository.addCrossBotMessage(
+          botId,
+          guildId,
+          channelId,
+          senderId,
+          senderBot.name,
+          message.content
+        );
+      } catch {
+        /* non-fatal */
+      }
+    }
+
+    if (isHuman) {
+      loopGuard.registerHumanMessage(guildId, channelId);
+    }
+
+    if (isHuman) {
+      try {
+        // Moderation config lives on legacy GuildConfig (guild-scoped, not per-bot).
+        const guildConfig = await getGuildConfig(guildId);
+        if (guildConfig && guildConfig.moderationEnabled) {
+          await checkToxicity(message, guildConfig);
+        }
+      } catch (err) {
+        console.error('Moderation error:', err.message);
+      }
+    }
+
+    if (isHuman) {
+      const isIgnored = await userIgnoreListRepository.isUserIgnored(guildId, senderId);
+      if (isIgnored) return;
+    }
+
+    let shouldReply = false;
+    let skipGating = false;
+
+    if (isHuman) {
+      const isMentioned = message.mentions.has(client.user);
+      const isReply = Boolean(message.reference) && message.type === 19;
+
+      if (effective.replyOnlyMode) {
+        shouldReply = isMentioned || isReply;
+      } else {
+        const chance = typeof effective.responseChance === 'number' ? effective.responseChance : 100;
+        shouldReply = isMentioned || Math.random() * 100 < chance;
+      }
+      if (!shouldReply) return;
+
+      const allowed = Array.isArray(effective.allowedChannels) ? effective.allowedChannels : [];
+      if (allowed.length > 0 && !allowed.includes(channelId)) return;
+
+      const cooldownMs = typeof effective.cooldownMs === 'number' ? effective.cooldownMs : 3000;
+      const last = getCooldown(botId, guildId, channelId);
+      if (last && Date.now() - last < cooldownMs) return;
+
+      skipGating = true;
+    } else if (isOurBot) {
+      if (!effective.botToBotEnabled) return;
+
+      const weAreMentioned = message.mentions.has(client.user);
+
+      if (weAreMentioned && effective.mentionBypassMatrix) {
+        // Explicit @mention bypasses pair-chance but still respects loopGuard gates.
+        shouldReply = true;
+      } else {
+        const chance = await botPairChanceRepository.getPairChance(guildId, senderBotId, botId);
+        if (!chance || chance <= 0) return;
+        shouldReply = Math.random() * 100 < chance;
+        if (!shouldReply) return;
+      }
     } else {
-      const shouldRespond = isMentioned || Math.random() * 100 < effective.responseChance;
-      if (!shouldRespond) return;
-    }
-
-    if (
-      Array.isArray(effective.allowedChannels) &&
-      effective.allowedChannels.length > 0 &&
-      !effective.allowedChannels.includes(message.channel.id)
-    ) {
       return;
     }
 
-    const lastResponse = getCooldown(botId, guildId, message.channel.id);
-    if (lastResponse && Date.now() - lastResponse < effective.cooldownMs) {
+    const guardCfg = {
+      maxChainDepth: effective.maxChainDepth ?? 3,
+      channelCooldownMs: effective.channelCooldownMs ?? 5000,
+      circuitBreakerCount: effective.circuitBreakerCount ?? 10,
+      circuitBreakerWindowMs: effective.circuitBreakerWindowMs ?? 60000,
+      circuitBreakerPauseMs: effective.circuitBreakerPauseMs ?? 300000,
+    };
+    const reservation = loopGuard.tryReserveBotReply(
+      guildId,
+      channelId,
+      guardCfg,
+      { isHumanInitiated: skipGating }
+    );
+    if (!reservation.ok) {
+      log('msg.refused', {
+        botId,
+        guildId,
+        channelId,
+        reason: reservation.reason,
+        isCrossBot: isOurBot,
+      });
       return;
     }
 
-    const aiApiKey = await botRepository.getDecryptedApiKey(botId);
+    let aiApiKey = null;
+    try {
+      aiApiKey = await botRepository.getDecryptedApiKey(botId);
+    } catch (err) {
+      console.error('AI key fetch failed:', err.message);
+      reservation.release();
+      return;
+    }
 
-    const aiContext = {
+    const aiConfig = {
       guildId,
       aiPersonality: effective.aiPersonality,
       aiBaseUrl: effective.aiBaseUrl,
@@ -61,29 +172,51 @@ export default {
       aiContextMessages: effective.aiContextMessages,
     };
 
+    const aiContext = {
+      botId,
+      client,
+      channelId,
+      userId: senderId,
+      username: message.author.username,
+      senderIsOurBot: isOurBot,
+      senderBotName: senderBot?.name ?? null,
+    };
+
     try {
       await message.channel.sendTyping();
+    } catch {
+      /* non-fatal */
+    }
 
-      const response = await generateAIResponseWithKnowledge(
-        message.content,
-        aiContext,
-        {
-          botId,
-          client,
-          channelId: message.channel.id,
-          userId: message.author.id,
-          username: message.author.username,
-          senderIsOurBot: false,
-          senderBotName: null,
-        }
-      );
+    let response;
+    try {
+      response = await generateAIResponseWithKnowledge(message.content, aiConfig, aiContext);
+    } catch (err) {
+      console.error('AI error:', err.message);
+      reservation.release();
+      return;
+    }
 
-      if (response) {
-        await message.reply(response);
-        setCooldown(botId, guildId, message.channel.id, Date.now());
+    if (!response) {
+      reservation.release();
+      return;
+    }
+
+    try {
+      await message.reply(response);
+      if (isHuman) {
+        setCooldown(botId, guildId, channelId, Date.now());
       }
-    } catch (error) {
-      console.error('Error generating AI response:', error);
+      reservation.commit();
+      log('msg.reply.sent', {
+        botId,
+        guildId,
+        channelId,
+        isCrossBot: isOurBot,
+      });
+    } catch (err) {
+      console.error('Reply error:', err.message);
+      reservation.release();
     }
   },
 };

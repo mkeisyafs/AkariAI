@@ -1,0 +1,7 @@
+71:      loopGuard.registerHumanMessage(guildId, channelId);
+139:    const reservation = loopGuard.tryReserveBotReply(
+161:      reservation.release();
+196:      reservation.release();
+201:      reservation.release();
+210:      reservation.commit();
+219:      reservation.release();

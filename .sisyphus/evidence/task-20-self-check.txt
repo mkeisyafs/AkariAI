@@ -1,0 +1,1 @@
+26:    if (client.user && message.author.id === client.user.id) return;

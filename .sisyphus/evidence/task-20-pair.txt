@@ -1,0 +1,2 @@
+4:import botPairChanceRepository from '../database/repositories/botPairChanceRepository.js';
+123:        const chance = await botPairChanceRepository.getPairChance(guildId, senderBotId, botId);

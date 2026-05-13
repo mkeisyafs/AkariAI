@@ -1,0 +1,4 @@
+16:import guildBotsRouter from './routes/guildBots.js';
+17:import pairChanceRouter from './routes/pairChance.js';
+100:  app.use('/api/guilds/:guildId/bots', guildBotsRouter);
+101:  app.use('/api/guilds/:guildId/pair-chance', pairChanceRouter);

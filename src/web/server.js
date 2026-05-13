@@ -13,6 +13,8 @@ import guildRoutes from './routes/guilds.js';
 import moderationRoutes from './routes/moderation.js';
 import knowledgeRoutes from './routes/knowledge.js';
 import adminBotsRouter from './routes/admin/bots.js';
+import guildBotsRouter from './routes/guildBots.js';
+import pairChanceRouter from './routes/pairChance.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,6 +97,8 @@ export function startWebServer(botManagerOrClient) {
   app.use('/api/moderation', moderationRoutes);
   app.use('/api/guilds', knowledgeRoutes);
   app.use('/api/admin/bots', adminBotsRouter);
+  app.use('/api/guilds/:guildId/bots', guildBotsRouter);
+  app.use('/api/guilds/:guildId/pair-chance', pairChanceRouter);
 
   app.get('/api/health', (req, res) => {
     const client = getDiscordClient();

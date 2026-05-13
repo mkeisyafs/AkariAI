@@ -1,0 +1,2 @@
+22:// All ids must be known bots; self-pairs (speaker === target) and out-of-range
+49:        if (speakerId === targetId) {

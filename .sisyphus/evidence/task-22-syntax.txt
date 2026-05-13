@@ -1,0 +1,3 @@
+src/web/middleware/guildAdmin.js OK
+src/web/routes/guildBots.js OK
+src/web/server.js OK

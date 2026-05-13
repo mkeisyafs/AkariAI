@@ -124,3 +124,34 @@ For V1 reviewers: this is correct behavior.
 - **Backfill failure is fatal**: decided by orchestrator spec — without backfill normalizing `botId` on Knowledge/UserWarning/ModerationLog, any downstream read returns inconsistent per-bot data. `process.exit(1)` on backfill error rather than logging and continuing.
 - **startWebServer(botManager)**: now duck-types its arg (`typeof arg.getAllHandles === 'function' && typeof arg.getClient === 'function'`) to distinguish a BotManager from a raw Client. Keeps the function signature backwards-compatible for any test or harness that passes a single Client.
 - **Syntax-checked with node --check; LSP diagnostics clean on all three changed files (src/index.js, src/web/server.js, src/web/routes/guilds.js).**
+
+## [2026-05-13] V2 Phase 2 Verification — APPROVE all 4
+- V2a banned-pattern grep: 0 hits for `export default client`, singleton imports, client.commands/cooldowns, Routes.applicationCommands global
+- V2b LoopGuard 1000-concurrent stress: exactly 1 winner, 999 RESERVED, 0 other refusals — sync gate is airtight
+- V2c Boot resilience: missing key → exit 1 @ 1240ms, deny-list key → exit 1 @ 524ms, valid key no DB → encryption pass → globalAdmins loaded → DB-missing error (correct ordering)
+- V2d Admin API: all 7 routes registered, requireGlobalAdmin at router-level, Discord /users/@me validation, 0 token-in-response, 0 plaintext token logs
+- DB-backed scenarios (no-bots-alive, SIGTERM-clean, live HTTP integration) SKIPPED — validated against real DB at prod deploy (same rationale as V1)
+
+## 2026-05-13 — Task T25 (React hooks + typed API clients)
+
+- `web/src/types/index.ts` is a single flat file (not a barrel of subfiles) — just appended a new section at the end, matching convention.
+- `web/src/services/api.ts` exposes a **default-exported axios instance** (`import api from './api'`) plus named per-domain helpers (`authAPI`, `guildsAPI`, `moderationAPI`). New clients follow the named-object pattern (`adminBotsApi`, `guildBotsApi`, `pairChanceApi`) and reuse the default instance — never instantiate a new axios.
+- `tsconfig.app.json` has `verbatimModuleSyntax: true` — type-only imports **must** use `import type { ... }` (otherwise TS errors). All new files comply.
+- `tsconfig.app.json` also has `noUnusedLocals: true` — any stray `useState`/`useMemo` import will break the build. Checked each hook.
+- Hook convention established by `useGuildConfig` / `useAuth`: `{ data, loading, error, refetch|refresh, ...mutations }`. Existing hooks use `refetch`; new hooks use `refresh` per T25 spec — both are valid and consumers adapt.
+- `useKnowledge` uses raw axios + `VITE_API_URL` (legacy pattern). New hooks prefer the shared `api` instance (retry + credentials already configured). Don't copy the `VITE_API_URL`+bare-axios approach.
+- `usePairChance` uses `JSON.stringify` for dirty-check — fine for a small sparse matrix (≤8×8 per UI spec). Not a hot path.
+- `useGlobalAdmin` is a stub against T28's `/api/me` endpoint — if the endpoint 404s pre-T28, it silently falls back to `isGlobalAdmin: false`, which is the safe default.
+- Token/API-key rotation endpoints take the raw secret in request body and return `{ ok, status }` — never store the secret in hook state. Verified no `encryptedToken|encryptedApiKey` references anywhere in `web/src/`.
+- `npx tsc --noEmit` run from `web/` completes in ~3s and respects both project references (`tsconfig.app.json` + `tsconfig.node.json`).
+
+## 2026-05-13 — Tasks T22/T23 (guild-scoped bot + pair-chance REST)
+
+- `express.Router({ mergeParams: true })` is required to inherit `:guildId` from parent mount path (`/api/guilds/:guildId/bots`). Without it, `req.params.guildId` is undefined inside child handlers.
+- Router mount layers count in `router.stack.length`: a router with 3 routes + 1 `router.use(mw)` has stack-len=4. Smoke assertions should include the middleware layer.
+- `botManager.getClient(botId)` returns null for non-READY handles, so checking `.guilds.cache.get(guildId)` doubles as a "bot ready AND present in guild" guard — no separate status check needed.
+- `deployBotCommandsToGuild` never throws; it returns `{status:'failed', error}` on REST errors. Map to 502 (not 500) when surfacing to clients — it's a downstream Discord failure, not a server bug.
+- Validation philosophy for PUT pair-chance matrix: validate the entire body BEFORE any DB write. The upsert loop is not wrapped in a transaction (Prisma-level), but by rejecting all-or-nothing at the validation stage, we avoid partial writes in the normal case (only DB-level transient failures can split the batch).
+- `guildBotSettingsRepository.upsert` accepts a `patch` object and passes it verbatim to `prisma.upsert`. MUST whitelist fields at the route layer — passing `req.body` directly would let callers write arbitrary columns (`createdAt`, `id`, etc).
+- The 409 on "enable=true for non-invited bot" check uses `botManager.getClient(botId)` + `guild.cache.get(guildId)` — same check the middleware does, so we're reusing the already-warm cache lookup.
+- Error contract: all 5xx responses use `{ error: 'Internal error' }` (no leaking `err.message`) matching `admin/bots.js` pattern. 4xx responses include the specific reason.

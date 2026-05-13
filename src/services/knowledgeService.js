@@ -1,11 +1,12 @@
 import prisma from '../database/prisma.js';
 
 export class KnowledgeService {
-  async addKnowledge(guildId, key, value, category = 'general', description = null, createdBy) {
+  async addKnowledge(guildId, botId, key, value, category = 'general', description = null, createdBy) {
     try {
       const knowledge = await prisma.knowledge.create({
         data: {
           guildId,
+          botId,
           key: key.toLowerCase(),
           value,
           category,
@@ -23,12 +24,13 @@ export class KnowledgeService {
     }
   }
 
-  async getKnowledge(guildId, key) {
+  async getKnowledge(guildId, botId, key) {
     try {
       const knowledge = await prisma.knowledge.findUnique({
         where: {
-          guildId_key: {
+          guildId_botId_key: {
             guildId,
+            botId,
             key: key.toLowerCase(),
           },
         },
@@ -40,9 +42,9 @@ export class KnowledgeService {
     }
   }
 
-  async getAllKnowledge(guildId, category = null) {
+  async getAllKnowledge(guildId, botId, category = null) {
     try {
-      const where = { guildId };
+      const where = { guildId, botId };
       if (category) {
         where.category = category;
       }
@@ -58,12 +60,13 @@ export class KnowledgeService {
     }
   }
 
-  async updateKnowledge(guildId, key, updates) {
+  async updateKnowledge(guildId, botId, key, updates) {
     try {
       const knowledge = await prisma.knowledge.update({
         where: {
-          guildId_key: {
+          guildId_botId_key: {
             guildId,
+            botId,
             key: key.toLowerCase(),
           },
         },
@@ -79,12 +82,13 @@ export class KnowledgeService {
     }
   }
 
-  async deleteKnowledge(guildId, key) {
+  async deleteKnowledge(guildId, botId, key) {
     try {
       await prisma.knowledge.delete({
         where: {
-          guildId_key: {
+          guildId_botId_key: {
             guildId,
+            botId,
             key: key.toLowerCase(),
           },
         },
@@ -99,11 +103,12 @@ export class KnowledgeService {
     }
   }
 
-  async searchKnowledge(guildId, searchTerm) {
+  async searchKnowledge(guildId, botId, searchTerm) {
     try {
       const knowledge = await prisma.knowledge.findMany({
         where: {
           guildId,
+          botId,
           OR: [
             { key: { contains: searchTerm.toLowerCase() } },
             { value: { contains: searchTerm, mode: 'insensitive' } },
@@ -119,10 +124,10 @@ export class KnowledgeService {
     }
   }
 
-  async getCategories(guildId) {
+  async getCategories(guildId, botId) {
     try {
       const categories = await prisma.knowledge.findMany({
-        where: { guildId },
+        where: { guildId, botId },
         select: { category: true },
         distinct: ['category'],
         orderBy: { category: 'asc' },

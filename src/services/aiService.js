@@ -108,7 +108,7 @@ export async function generateAIResponse(userMessage, config, context) {
 }
 
 export async function generateAIResponseWithKnowledge(userMessage, config, context) {
-  const allKnowledge = await knowledgeService.getAllKnowledge(config.guildId);
+  const allKnowledge = await knowledgeService.getAllKnowledge(config.guildId, context.botId);
   const knowledgeContext = knowledgeService.buildKnowledgeContext(allKnowledge);
 
   return generateAIResponse(userMessage, config, { ...context, knowledgeContext });

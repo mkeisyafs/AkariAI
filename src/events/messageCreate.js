@@ -91,7 +91,7 @@ export default {
     }
 
     if (isHuman) {
-      const isIgnored = await userIgnoreListRepository.isUserIgnored(guildId, senderId);
+      const isIgnored = await userIgnoreListRepository.isUserIgnored(guildId, botId, senderId);
       if (isIgnored) return;
     }
 

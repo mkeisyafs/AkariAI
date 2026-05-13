@@ -1,21 +1,35 @@
 import { Router } from 'express';
 import { requireAuth, requireGuildAccess, requireWhitelist } from '../middleware/auth.js';
 import { knowledgeService } from '../../services/knowledgeService.js';
+import botRepository from '../../database/repositories/botRepository.js';
 
 const router = Router();
+
+// Resolve the bot scope for a knowledge request:
+//   - explicit `?botId=...` from query/body wins
+//   - else fall back to the migrated legacy bot (so existing UI keeps working)
+async function resolveBotId(req) {
+  const explicit = req.query.botId || req.body?.botId;
+  if (explicit && typeof explicit === 'string') return explicit;
+  const bots = await botRepository.listBots({ includeDisabled: true });
+  const legacy = bots.find(b => b.isMigrated);
+  return legacy?.id || bots[0]?.id || null;
+}
 
 router.get('/:guildId/knowledge', requireAuth, requireWhitelist, requireGuildAccess, async (req, res) => {
   try {
     const { guildId } = req.params;
     const { category, search } = req.query;
+    const botId = await resolveBotId(req);
+    if (!botId) return res.status(409).json({ error: 'No bots registered yet' });
 
     let knowledge;
     if (search) {
-      knowledge = await knowledgeService.searchKnowledge(guildId, search);
+      knowledge = await knowledgeService.searchKnowledge(guildId, botId, search);
     } else if (category) {
-      knowledge = await knowledgeService.getAllKnowledge(guildId, category);
+      knowledge = await knowledgeService.getAllKnowledge(guildId, botId, category);
     } else {
-      knowledge = await knowledgeService.getAllKnowledge(guildId);
+      knowledge = await knowledgeService.getAllKnowledge(guildId, botId);
     }
 
     res.json(knowledge);
@@ -28,7 +42,9 @@ router.get('/:guildId/knowledge', requireAuth, requireWhitelist, requireGuildAcc
 router.get('/:guildId/knowledge/categories', requireAuth, requireWhitelist, requireGuildAccess, async (req, res) => {
   try {
     const { guildId } = req.params;
-    const categories = await knowledgeService.getCategories(guildId);
+    const botId = await resolveBotId(req);
+    if (!botId) return res.status(409).json({ error: 'No bots registered yet' });
+    const categories = await knowledgeService.getCategories(guildId, botId);
     res.json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -39,7 +55,9 @@ router.get('/:guildId/knowledge/categories', requireAuth, requireWhitelist, requ
 router.get('/:guildId/knowledge/:key', requireAuth, requireWhitelist, requireGuildAccess, async (req, res) => {
   try {
     const { guildId, key } = req.params;
-    const knowledge = await knowledgeService.getKnowledge(guildId, key);
+    const botId = await resolveBotId(req);
+    if (!botId) return res.status(409).json({ error: 'No bots registered yet' });
+    const knowledge = await knowledgeService.getKnowledge(guildId, botId, key);
 
     if (!knowledge) {
       return res.status(404).json({ error: 'Knowledge entry not found' });
@@ -56,6 +74,8 @@ router.post('/:guildId/knowledge', requireAuth, requireWhitelist, requireGuildAc
   try {
     const { guildId } = req.params;
     const { key, value, category, description } = req.body;
+    const botId = await resolveBotId(req);
+    if (!botId) return res.status(409).json({ error: 'No bots registered yet' });
 
     if (!key || !value) {
       return res.status(400).json({ error: 'Key and value are required' });
@@ -63,6 +83,7 @@ router.post('/:guildId/knowledge', requireAuth, requireWhitelist, requireGuildAc
 
     const result = await knowledgeService.addKnowledge(
       guildId,
+      botId,
       key,
       value,
       category || 'general',
@@ -85,6 +106,8 @@ router.patch('/:guildId/knowledge/:key', requireAuth, requireWhitelist, requireG
   try {
     const { guildId, key } = req.params;
     const { value, category, description } = req.body;
+    const botId = await resolveBotId(req);
+    if (!botId) return res.status(409).json({ error: 'No bots registered yet' });
 
     const updates = {};
     if (value !== undefined) updates.value = value;
@@ -95,7 +118,7 @@ router.patch('/:guildId/knowledge/:key', requireAuth, requireWhitelist, requireG
       return res.status(400).json({ error: 'No updates provided' });
     }
 
-    const result = await knowledgeService.updateKnowledge(guildId, key, updates);
+    const result = await knowledgeService.updateKnowledge(guildId, botId, key, updates);
 
     if (!result.success) {
       return res.status(404).json({ error: result.error });
@@ -111,7 +134,9 @@ router.patch('/:guildId/knowledge/:key', requireAuth, requireWhitelist, requireG
 router.delete('/:guildId/knowledge/:key', requireAuth, requireWhitelist, requireGuildAccess, async (req, res) => {
   try {
     const { guildId, key } = req.params;
-    const result = await knowledgeService.deleteKnowledge(guildId, key);
+    const botId = await resolveBotId(req);
+    if (!botId) return res.status(409).json({ error: 'No bots registered yet' });
+    const result = await knowledgeService.deleteKnowledge(guildId, botId, key);
 
     if (!result.success) {
       return res.status(404).json({ error: result.error });

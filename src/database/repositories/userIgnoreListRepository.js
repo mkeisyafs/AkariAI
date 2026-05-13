@@ -1,30 +1,32 @@
 import prisma from '../prisma.js';
 
 export class UserIgnoreListRepository {
-  async findByGuildAndUser(guildId, userId) {
+  async findByGuildAndUser(guildId, botId, userId) {
     return await prisma.userIgnoreList.findUnique({
       where: {
-        guildId_userId: {
+        guildId_botId_userId: {
           guildId,
+          botId,
           userId,
         },
       },
     });
   }
 
-  async isUserIgnored(guildId, userId) {
-    const record = await this.findByGuildAndUser(guildId, userId);
+  async isUserIgnored(guildId, botId, userId) {
+    const record = await this.findByGuildAndUser(guildId, botId, userId);
     return record?.ignored ?? false;
   }
 
-  async toggleIgnore(guildId, userId) {
-    const existing = await this.findByGuildAndUser(guildId, userId);
-    
+  async toggleIgnore(guildId, botId, userId) {
+    const existing = await this.findByGuildAndUser(guildId, botId, userId);
+
     if (existing) {
       return await prisma.userIgnoreList.update({
         where: {
-          guildId_userId: {
+          guildId_botId_userId: {
             guildId,
+            botId,
             userId,
           },
         },
@@ -36,6 +38,7 @@ export class UserIgnoreListRepository {
       return await prisma.userIgnoreList.create({
         data: {
           guildId,
+          botId,
           userId,
           ignored: true,
         },
@@ -43,11 +46,12 @@ export class UserIgnoreListRepository {
     }
   }
 
-  async setIgnoreStatus(guildId, userId, ignored) {
+  async setIgnoreStatus(guildId, botId, userId, ignored) {
     return await prisma.userIgnoreList.upsert({
       where: {
-        guildId_userId: {
+        guildId_botId_userId: {
           guildId,
+          botId,
           userId,
         },
       },
@@ -56,17 +60,19 @@ export class UserIgnoreListRepository {
       },
       create: {
         guildId,
+        botId,
         userId,
         ignored,
       },
     });
   }
 
-  async delete(guildId, userId) {
+  async delete(guildId, botId, userId) {
     return await prisma.userIgnoreList.delete({
       where: {
-        guildId_userId: {
+        guildId_botId_userId: {
           guildId,
+          botId,
           userId,
         },
       },

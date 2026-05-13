@@ -114,32 +114,32 @@ export default {
         .setDescription('List all knowledge categories')
     ),
 
-  async execute(interaction) {
+  async execute(interaction, botId) {
     const subcommand = interaction.options.getSubcommand();
     const guildId = interaction.guild.id;
 
     try {
       switch (subcommand) {
         case 'add':
-          await handleAdd(interaction, guildId);
+          await handleAdd(interaction, guildId, botId);
           break;
         case 'get':
-          await handleGet(interaction, guildId);
+          await handleGet(interaction, guildId, botId);
           break;
         case 'list':
-          await handleList(interaction, guildId);
+          await handleList(interaction, guildId, botId);
           break;
         case 'update':
-          await handleUpdate(interaction, guildId);
+          await handleUpdate(interaction, guildId, botId);
           break;
         case 'delete':
-          await handleDelete(interaction, guildId);
+          await handleDelete(interaction, guildId, botId);
           break;
         case 'search':
-          await handleSearch(interaction, guildId);
+          await handleSearch(interaction, guildId, botId);
           break;
         case 'categories':
-          await handleCategories(interaction, guildId);
+          await handleCategories(interaction, guildId, botId);
           break;
       }
     } catch (error) {
@@ -155,7 +155,7 @@ export default {
   },
 };
 
-async function handleAdd(interaction, guildId) {
+async function handleAdd(interaction, guildId, botId) {
   const key = interaction.options.getString('key');
   const value = interaction.options.getString('value');
   const category = interaction.options.getString('category') || 'general';
@@ -163,6 +163,7 @@ async function handleAdd(interaction, guildId) {
 
   const result = await knowledgeService.addKnowledge(
     guildId,
+    botId,
     key,
     value,
     category,
@@ -191,9 +192,9 @@ async function handleAdd(interaction, guildId) {
   }
 }
 
-async function handleGet(interaction, guildId) {
+async function handleGet(interaction, guildId, botId) {
   const key = interaction.options.getString('key');
-  const knowledge = await knowledgeService.getKnowledge(guildId, key);
+  const knowledge = await knowledgeService.getKnowledge(guildId, botId, key);
 
   if (knowledge) {
     const embed = new EmbedBuilder()
@@ -216,9 +217,9 @@ async function handleGet(interaction, guildId) {
   }
 }
 
-async function handleList(interaction, guildId) {
+async function handleList(interaction, guildId, botId) {
   const category = interaction.options.getString('category');
-  const knowledge = await knowledgeService.getAllKnowledge(guildId, category);
+  const knowledge = await knowledgeService.getAllKnowledge(guildId, botId, category);
 
   if (knowledge.length === 0) {
     const message = category
@@ -256,7 +257,7 @@ async function handleList(interaction, guildId) {
   await interaction.reply({ embeds: [embed] });
 }
 
-async function handleUpdate(interaction, guildId) {
+async function handleUpdate(interaction, guildId, botId) {
   const key = interaction.options.getString('key');
   const value = interaction.options.getString('value');
   const category = interaction.options.getString('category');
@@ -272,7 +273,7 @@ async function handleUpdate(interaction, guildId) {
     return;
   }
 
-  const result = await knowledgeService.updateKnowledge(guildId, key, updates);
+  const result = await knowledgeService.updateKnowledge(guildId, botId, key, updates);
 
   if (result.success) {
     const embed = new EmbedBuilder()
@@ -291,9 +292,9 @@ async function handleUpdate(interaction, guildId) {
   }
 }
 
-async function handleDelete(interaction, guildId) {
+async function handleDelete(interaction, guildId, botId) {
   const key = interaction.options.getString('key');
-  const result = await knowledgeService.deleteKnowledge(guildId, key);
+  const result = await knowledgeService.deleteKnowledge(guildId, botId, key);
 
   if (result.success) {
     await interaction.reply({ content: `✅ Knowledge entry "${key}" has been deleted.` });
@@ -302,9 +303,9 @@ async function handleDelete(interaction, guildId) {
   }
 }
 
-async function handleSearch(interaction, guildId) {
+async function handleSearch(interaction, guildId, botId) {
   const query = interaction.options.getString('query');
-  const results = await knowledgeService.searchKnowledge(guildId, query);
+  const results = await knowledgeService.searchKnowledge(guildId, botId, query);
 
   if (results.length === 0) {
     await interaction.reply({ content: `No knowledge entries found matching "${query}".`, ephemeral: true });
@@ -331,8 +332,8 @@ async function handleSearch(interaction, guildId) {
   await interaction.reply({ embeds: [embed] });
 }
 
-async function handleCategories(interaction, guildId) {
-  const categories = await knowledgeService.getCategories(guildId);
+async function handleCategories(interaction, guildId, botId) {
+  const categories = await knowledgeService.getCategories(guildId, botId);
 
   if (categories.length === 0) {
     await interaction.reply({ content: 'No categories found.', ephemeral: true });

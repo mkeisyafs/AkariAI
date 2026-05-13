@@ -5,12 +5,12 @@ export default {
   data: new SlashCommandBuilder()
     .setName('ignore')
     .setDescription('Toggle whether the bot responds to your messages'),
-  async execute(interaction) {
+  async execute(interaction, botId) {
     try {
       const guildId = interaction.guild.id;
       const userId = interaction.user.id;
 
-      const result = await userIgnoreListRepository.toggleIgnore(guildId, userId);
+      const result = await userIgnoreListRepository.toggleIgnore(guildId, botId, userId);
 
       const embed = new EmbedBuilder()
         .setColor(result.ignored ? '#ff6b6b' : '#51cf66')

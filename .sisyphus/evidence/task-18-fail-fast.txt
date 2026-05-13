@@ -1,0 +1,10 @@
+exit:1
+ms:260
+--- log head ---
+Boot failed: BOT_ENCRYPTION_KEY is missing or empty
+--- mentions BOT_ENCRYPTION_KEY ---
+1
+=== Valid key, no DB — confirms ordering past key check ===
+exit:1 ms:591
+{"ts":"2026-05-13T15:09:23.709Z","level":"info","event":"globalAdmins.loaded","count":0}
+Fatal boot error: DATABASE_URL is not defined in environment variables

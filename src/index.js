@@ -1,47 +1,160 @@
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
-import { config } from 'dotenv';
-import { connectDatabase } from './database/connection.js';
-import { loadCommands } from './handlers/commandHandler.js';
-import { loadEvents } from './handlers/eventHandler.js';
-import { startWebServer } from './web/server.js';
+// Multi-bot boot sequence (T18).
+//
+// Ordering contract (strict): dotenv → encryption-key check → global-admins
+// parse → DB connect → backfill → connect all enabled bots → wire
+// events/commands per bot → fire-and-forget slash deploy → web server start.
+//
+// Failure contract:
+//   - Missing/invalid BOT_ENCRYPTION_KEY  → exit 1 immediately (pre-I/O).
+//   - DB connect failure                  → exit 1.
+//   - Backfill failure                    → exit 1 (inconsistent state otherwise).
+//   - Individual bot connect failure      → logged, process stays alive.
+//   - Slash command deploy failure        → logged, does NOT block boot.
+//
+// IMPORTANT: most dependencies are imported dynamically AFTER the key check.
+// Static-importing them would pull in `./database/prisma.js`, which throws at
+// load time when DATABASE_URL is unset — that would mask the real
+// BOT_ENCRYPTION_KEY error and violate the "encryption check before any other
+// I/O" contract.
 
+import { config } from 'dotenv';
 config();
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildModeration,
-    GatewayIntentBits.GuildMessageReactions,
-  ],
-  partials: [Partials.GuildMember, Partials.Message, Partials.Channel, Partials.Reaction],
-});
+import { assertKeyValid } from './utils/encryption.js';
 
-async function startBot() {
+export const globalAdmins = new Set();
+
+const SNOWFLAKE_RE = /^[0-9]{15,20}$/;
+
+function log(level, event, ctx = {}) {
   try {
-    await connectDatabase();
-    console.log('✅ Database connected');
-
-    await loadCommands(client);
-    console.log('✅ Commands loaded');
-
-    await loadEvents(client);
-    console.log('✅ Events loaded');
-
-    await client.login(process.env.DISCORD_TOKEN);
-    console.log('✅ Discord bot logged in');
-
-    startWebServer(client);
-  } catch (error) {
-    console.error('❌ Failed to start bot:', error);
-    process.exit(1);
+    console.log(JSON.stringify({ ts: new Date().toISOString(), level, event, ...ctx }));
+  } catch {
+    console.log(`[index] ${level} ${event}`);
   }
 }
 
-startBot();
+function parseGlobalAdminUserIds() {
+  const raw = process.env.GLOBAL_ADMIN_USER_IDS || '';
+  const entries = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  const valid = entries.filter((id) => SNOWFLAKE_RE.test(id));
+  const ignored = entries.filter((id) => !SNOWFLAKE_RE.test(id));
+  if (ignored.length > 0) {
+    log('warn', 'globalAdmins.invalidEntries', { ignored });
+  }
+  return new Set(valid);
+}
 
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled promise rejection:', error);
+const shutdownState = { botManager: null, shuttingDown: false };
+
+async function startBot() {
+  try {
+    assertKeyValid();
+  } catch (err) {
+    console.error(`Boot failed: ${err.message}`);
+    process.exit(1);
+  }
+
+  for (const id of parseGlobalAdminUserIds()) globalAdmins.add(id);
+  log('info', 'globalAdmins.loaded', { count: globalAdmins.size });
+
+  const { connectDatabase } = await import('./database/connection.js');
+  const { default: botManager } = await import('./services/botManager.js');
+  const { deployAllBotsToTheirGuilds } = await import('./services/slashCommandDeployer.js');
+  const { registerEventsForClient } = await import('./handlers/eventHandler.js');
+  const { loadCommandsForBot } = await import('./handlers/commandHandler.js');
+  const { startWebServer } = await import('./web/server.js');
+  const { run: runBackfill } = await import('../scripts/backfill-multi-bot.js');
+
+  shutdownState.botManager = botManager;
+
+  await connectDatabase();
+  log('info', 'db.connected');
+
+  try {
+    const result = await runBackfill();
+    log('info', 'backfill.done', result || {});
+  } catch (err) {
+    log('error', 'backfill.failed', { error: err && err.message ? err.message : String(err) });
+    process.exit(1);
+  }
+
+  const connectSummary = await botManager.connectAllEnabled();
+  log('info', 'bots.connected', connectSummary);
+
+  if (connectSummary.attempted === 0) {
+    log('info', 'bots.empty', { hint: 'No bots configured — add via admin UI' });
+  }
+
+  const handles = botManager.getAllHandles();
+  for (const h of handles) {
+    if (h.status !== 'READY' && h.status !== 'CONNECTING') continue;
+    const client = botManager.getClient(h.botId);
+    if (!client) continue;
+    try {
+      await loadCommandsForBot(client, h.botId);
+      registerEventsForClient(client, h.botId);
+      log('info', 'bot.wired', { botId: h.botId });
+    } catch (err) {
+      log('error', 'bot.wireup.failed', {
+        botId: h.botId,
+        error: err && err.message ? err.message : String(err),
+      });
+    }
+  }
+
+  Promise.resolve()
+    .then(() => deployAllBotsToTheirGuilds())
+    .then((summary) => log('info', 'slash.deployed', summary || {}))
+    .catch((err) =>
+      log('error', 'slash.deploy.failed', {
+        error: err && err.message ? err.message : String(err),
+      })
+    );
+
+  startWebServer(botManager);
+  log('info', 'web.started');
+}
+
+async function shutdown(signal) {
+  if (shutdownState.shuttingDown) return;
+  shutdownState.shuttingDown = true;
+  log('info', 'shutdown.start', { signal });
+
+  const bm = shutdownState.botManager;
+  if (bm) {
+    const handles = bm.getAllHandles();
+    await Promise.allSettled(handles.map((h) => bm.disconnectBot(h.botId)));
+    log('info', 'shutdown.botsDisconnected', { count: handles.length });
+  }
+
+  try {
+    const { default: prisma } = await import('./database/prisma.js');
+    await prisma.$disconnect();
+    log('info', 'shutdown.dbDisconnected');
+  } catch (err) {
+    log('error', 'shutdown.dbDisconnect.failed', {
+      error: err && err.message ? err.message : String(err),
+    });
+  }
+
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => {
+  shutdown('SIGTERM').catch(() => process.exit(1));
+});
+process.on('SIGINT', () => {
+  shutdown('SIGINT').catch(() => process.exit(1));
+});
+
+process.on('unhandledRejection', (err) => {
+  log('error', 'unhandledRejection', {
+    error: err && err.message ? err.message : String(err),
+  });
+});
+
+startBot().catch((err) => {
+  console.error(`Fatal boot error: ${err && err.message ? err.message : String(err)}`);
+  process.exit(1);
 });

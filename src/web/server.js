@@ -18,12 +18,40 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MemoryStore = createMemoryStore(session);
 
-export function startWebServer(discordClient) {
+// startWebServer accepts either a BotManager (multi-bot, preferred) or a
+// legacy single discord.js Client (backwards-compatible during T22 transition).
+// Legacy routes pull a client lazily via `req.app.locals.getDiscordClient()` so
+// that at request time we always hand back the *currently* READY client — not
+// a snapshot taken at boot before any bot finished logging in.
+export function startWebServer(botManagerOrClient) {
   const app = express();
   const PORT = process.env.WEB_PORT || 3000;
   const isProduction = process.env.NODE_ENV === 'production';
 
-  app.locals.discordClient = discordClient;
+  const isBotManager =
+    botManagerOrClient &&
+    typeof botManagerOrClient.getAllHandles === 'function' &&
+    typeof botManagerOrClient.getClient === 'function';
+
+  const getDiscordClient = () => {
+    if (!isBotManager) return botManagerOrClient || null;
+    const handles = botManagerOrClient.getAllHandles();
+    for (const h of handles) {
+      const c = botManagerOrClient.getClient(h.botId);
+      if (c && typeof c.isReady === 'function' && c.isReady()) return c;
+    }
+    return null;
+  };
+
+  app.locals.botManager = isBotManager ? botManagerOrClient : null;
+  app.locals.getDiscordClient = getDiscordClient;
+  // TODO(T22): remove this legacy assignment once all routes consume
+  // getDiscordClient() / botManager.getClient(botId) directly.
+  Object.defineProperty(app.locals, 'discordClient', {
+    get: getDiscordClient,
+    configurable: true,
+    enumerable: true,
+  });
 
   app.use(helmet({
     contentSecurityPolicy: false,
@@ -69,12 +97,21 @@ export function startWebServer(discordClient) {
   app.use('/api/admin/bots', adminBotsRouter);
 
   app.get('/api/health', (req, res) => {
+    const client = getDiscordClient();
+    const bots = isBotManager
+      ? botManagerOrClient.getAllHandles().map((h) => ({
+          botId: h.botId,
+          status: h.status,
+          discordBotUserId: h.discordBotUserId,
+        }))
+      : undefined;
     res.json({
       status: 'ok',
-      bot: discordClient.user ? {
-        username: discordClient.user.username,
-        id: discordClient.user.id,
+      bot: client && client.user ? {
+        username: client.user.username,
+        id: client.user.id,
       } : null,
+      ...(bots ? { bots } : {}),
     });
   });
 

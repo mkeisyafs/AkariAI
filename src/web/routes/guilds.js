@@ -313,7 +313,12 @@ router.post('/:guildId/verification/send', requireAuth, requireWhitelist, requir
     }
 
     const { sendVerificationMessage } = await import('../../utils/verification.js');
-    const discordClient = req.app.locals.discordClient;
+    const discordClient = typeof req.app.locals.getDiscordClient === 'function'
+      ? req.app.locals.getDiscordClient()
+      : req.app.locals.discordClient;
+    if (!discordClient) {
+      return res.status(503).json({ error: 'No Discord bot is currently connected' });
+    }
     await sendVerificationMessage(discordClient, guildId, channelId, message, emoji, buttonText, method);
 
     res.json({ success: true, message: 'Verification message sent' });

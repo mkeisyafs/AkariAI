@@ -1,0 +1,7 @@
+src/utils/logger.js OK
+src/services/botManager.js OK
+src/services/loopGuard.js OK
+src/events/messageCreate.js OK
+src/services/slashCommandDeployer.js OK
+src/web/routes/admin/bots.js OK
+src/index.js OK

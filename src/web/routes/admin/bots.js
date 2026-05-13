@@ -5,6 +5,7 @@ import botPairChanceRepository from '../../../database/repositories/botPairChanc
 import botManager from '../../../services/botManager.js';
 import prisma from '../../../database/prisma.js';
 import { safeLog } from '../../../utils/encryption.js';
+import { logger } from '../../../utils/logger.js';
 import { requireGlobalAdmin } from '../../middleware/globalAdmin.js';
 
 const router = Router();
@@ -27,13 +28,11 @@ function logServerError(route, err, extra = {}) {
   for (const [k, v] of Object.entries(extra)) {
     scrubbed[k] = typeof v === 'string' ? safeLog(v) : v;
   }
-  console.error(JSON.stringify({
-    ts: new Date().toISOString(),
-    event: 'admin.bots.error',
+  logger.error('admin.bots.error', {
     route,
     error: err && err.message ? safeLog(err.message) : 'unknown',
     ...scrubbed,
-  }));
+  });
 }
 
 function badRequest(res, message) {
@@ -112,6 +111,12 @@ router.post('/', async (req, res) => {
 
     const bot = await botRepository.createBot(createArgs);
 
+    logger.info('admin.bot.created', {
+      botId: bot.id,
+      name: bot.name,
+      discordAppId: bot.discordAppId,
+    });
+
     Promise.resolve()
       .then(() => botManager.connectBot(bot.id))
       .catch((err) => logServerError('POST / (connectBot)', err, { botId: bot.id }));
@@ -154,6 +159,10 @@ router.put('/:id', async (req, res) => {
     }
 
     const updated = await botRepository.updateBot(id, patch);
+    logger.info('admin.bot.updated', {
+      botId: id,
+      fields: Object.keys(patch),
+    });
     return res.status(200).json(updated);
   } catch (err) {
     logServerError('PUT /:id', err);
@@ -182,6 +191,8 @@ router.put('/:id/token', async (req, res) => {
     await botRepository.updateBot(id, { token: newToken });
     await botManager.restartBot(id);
 
+    logger.info('admin.bot.token.rotated', { botId: id });
+
     return res.status(200).json({ ok: true, status: botManager.getStatus(id) });
   } catch (err) {
     logServerError('PUT /:id/token', err);
@@ -201,6 +212,7 @@ router.put('/:id/api-key', async (req, res) => {
     }
 
     await botRepository.updateBot(id, { aiApiKey: newApiKey });
+    logger.info('admin.bot.api_key.rotated', { botId: id, cleared: newApiKey === null });
     return res.status(204).send();
   } catch (err) {
     logServerError('PUT /:id/api-key', err);
@@ -231,6 +243,8 @@ router.delete('/:id', async (req, res) => {
       prisma.bot.delete({ where: { id } }),
     ]);
 
+    logger.info('admin.bot.deleted', { botId: id });
+
     return res.status(204).send();
   } catch (err) {
     logServerError('DELETE /:id', err);
@@ -245,6 +259,7 @@ router.post('/:id/restart', async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Bot not found' });
 
     await botManager.restartBot(id);
+    logger.info('admin.bot.restarted', { botId: id });
     return res.status(200).json({ ok: true, status: botManager.getStatus(id) });
   } catch (err) {
     logServerError('POST /:id/restart', err);

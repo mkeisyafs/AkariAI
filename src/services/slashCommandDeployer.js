@@ -2,27 +2,27 @@ import { REST, Routes } from 'discord.js';
 import botRepository from '../database/repositories/botRepository.js';
 import guildBotSettingsRepository from '../database/repositories/guildBotSettingsRepository.js';
 import { getBotCommands } from './botCommands.js';
+import { logger } from '../utils/logger.js';
 
 const DEFAULT_CONCURRENCY = 3;
 
 function logEvent(event, ctx = {}) {
-  try {
-    console.log(JSON.stringify({ ts: new Date().toISOString(), event, ...ctx }));
-  } catch {
-    console.log(`[slashCommandDeployer] ${event}`);
-  }
+  logger.info(event, ctx);
 }
 
 // Bulk-overwrite a bot's slash commands for a single guild via REST.
 // Returns a plain result object — never throws, so callers can aggregate
 // across many (botId, guildId) pairs without abort-on-first-failure.
 export async function deployBotCommandsToGuild(botId, guildId) {
+  logEvent('slash.deploy.attempt', { botId, guildId });
   try {
     const bot = await botRepository.getBotById(botId);
     if (!bot) {
+      logger.warn('slash.deploy.failed', { botId, guildId, error: 'bot not found' });
       return { botId, guildId, status: 'failed', error: 'bot not found' };
     }
     if (!bot.discordAppId) {
+      logger.warn('slash.deploy.failed', { botId, guildId, error: 'bot missing discordAppId' });
       return { botId, guildId, status: 'failed', error: 'bot missing discordAppId' };
     }
 
@@ -44,11 +44,11 @@ export async function deployBotCommandsToGuild(botId, guildId) {
     );
 
     const count = Array.isArray(data) ? data.length : commands.length;
-    logEvent('slash.deploy.ok', { botId, guildId, count });
+    logEvent('slash.deploy.success', { botId, guildId, count });
     return { botId, guildId, status: 'deployed', count };
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
-    logEvent('slash.deploy.failed', { botId, guildId, error: message });
+    logger.error('slash.deploy.failed', { botId, guildId, error: message });
     return { botId, guildId, status: 'failed', error: message };
   }
 }

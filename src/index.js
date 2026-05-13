@@ -21,18 +21,11 @@ import { config } from 'dotenv';
 config();
 
 import { assertKeyValid } from './utils/encryption.js';
+import { logger } from './utils/logger.js';
 
 export const globalAdmins = new Set();
 
 const SNOWFLAKE_RE = /^[0-9]{15,20}$/;
-
-function log(level, event, ctx = {}) {
-  try {
-    console.log(JSON.stringify({ ts: new Date().toISOString(), level, event, ...ctx }));
-  } catch {
-    console.log(`[index] ${level} ${event}`);
-  }
-}
 
 function parseGlobalAdminUserIds() {
   const raw = process.env.GLOBAL_ADMIN_USER_IDS || '';
@@ -40,7 +33,7 @@ function parseGlobalAdminUserIds() {
   const valid = entries.filter((id) => SNOWFLAKE_RE.test(id));
   const ignored = entries.filter((id) => !SNOWFLAKE_RE.test(id));
   if (ignored.length > 0) {
-    log('warn', 'globalAdmins.invalidEntries', { ignored });
+    logger.warn('globalAdmins.invalidEntries', { ignored });
   }
   return new Set(valid);
 }
@@ -56,7 +49,7 @@ async function startBot() {
   }
 
   for (const id of parseGlobalAdminUserIds()) globalAdmins.add(id);
-  log('info', 'globalAdmins.loaded', { count: globalAdmins.size });
+  logger.info('globalAdmins.loaded', { count: globalAdmins.size });
 
   const { connectDatabase } = await import('./database/connection.js');
   const { default: botManager } = await import('./services/botManager.js');
@@ -69,21 +62,21 @@ async function startBot() {
   shutdownState.botManager = botManager;
 
   await connectDatabase();
-  log('info', 'db.connected');
+  logger.info('db.connected');
 
   try {
     const result = await runBackfill();
-    log('info', 'backfill.done', result || {});
+    logger.info('backfill.done', result || {});
   } catch (err) {
-    log('error', 'backfill.failed', { error: err && err.message ? err.message : String(err) });
+    logger.error('backfill.failed', { error: err && err.message ? err.message : String(err) });
     process.exit(1);
   }
 
   const connectSummary = await botManager.connectAllEnabled();
-  log('info', 'bots.connected', connectSummary);
+  logger.info('bots.connected', connectSummary);
 
   if (connectSummary.attempted === 0) {
-    log('info', 'bots.empty', { hint: 'No bots configured — add via admin UI' });
+    logger.info('bots.empty', { hint: 'No bots configured — add via admin UI' });
   }
 
   const handles = botManager.getAllHandles();
@@ -94,9 +87,9 @@ async function startBot() {
     try {
       await loadCommandsForBot(client, h.botId);
       registerEventsForClient(client, h.botId);
-      log('info', 'bot.wired', { botId: h.botId });
+      logger.info('bot.wired', { botId: h.botId });
     } catch (err) {
-      log('error', 'bot.wireup.failed', {
+      logger.error('bot.wireup.failed', {
         botId: h.botId,
         error: err && err.message ? err.message : String(err),
       });
@@ -105,35 +98,35 @@ async function startBot() {
 
   Promise.resolve()
     .then(() => deployAllBotsToTheirGuilds())
-    .then((summary) => log('info', 'slash.deployed', summary || {}))
+    .then((summary) => logger.info('slash.deployed', summary || {}))
     .catch((err) =>
-      log('error', 'slash.deploy.failed', {
+      logger.error('slash.deploy.failed', {
         error: err && err.message ? err.message : String(err),
       })
     );
 
   startWebServer(botManager);
-  log('info', 'web.started');
+  logger.info('web.started');
 }
 
 async function shutdown(signal) {
   if (shutdownState.shuttingDown) return;
   shutdownState.shuttingDown = true;
-  log('info', 'shutdown.start', { signal });
+  logger.info('shutdown.start', { signal });
 
   const bm = shutdownState.botManager;
   if (bm) {
     const handles = bm.getAllHandles();
     await Promise.allSettled(handles.map((h) => bm.disconnectBot(h.botId)));
-    log('info', 'shutdown.botsDisconnected', { count: handles.length });
+    logger.info('shutdown.botsDisconnected', { count: handles.length });
   }
 
   try {
     const { default: prisma } = await import('./database/prisma.js');
     await prisma.$disconnect();
-    log('info', 'shutdown.dbDisconnected');
+    logger.info('shutdown.dbDisconnected');
   } catch (err) {
-    log('error', 'shutdown.dbDisconnect.failed', {
+    logger.error('shutdown.dbDisconnect.failed', {
       error: err && err.message ? err.message : String(err),
     });
   }
@@ -149,7 +142,7 @@ process.on('SIGINT', () => {
 });
 
 process.on('unhandledRejection', (err) => {
-  log('error', 'unhandledRejection', {
+  logger.error('unhandledRejection', {
     error: err && err.message ? err.message : String(err),
   });
 });

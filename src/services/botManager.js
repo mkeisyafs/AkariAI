@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, Partials, Events } from 'discord.js';
 import botRepository from '../database/repositories/botRepository.js';
+import { logger } from '../utils/logger.js';
 
 // BotManager — runtime registry for multiple discord.js Client instances.
 //
@@ -46,15 +47,11 @@ let knownBotUserIds = new Set();
 const bootLocks = new Map();
 
 function logEvent(event, ctx = {}) {
-  try {
-    console.log(JSON.stringify({ ts: new Date().toISOString(), event, ...ctx }));
-  } catch {
-    console.log(`[botManager] ${event}`);
-  }
+  logger.info(event, ctx);
 }
 
 function logError(botId, err, event = 'bot.error') {
-  logEvent(event, {
+  logger.error(event, {
     botId,
     error: err && err.message ? err.message : String(err),
     code: err && err.code ? err.code : null,
@@ -115,6 +112,14 @@ function newHandle(botId) {
   };
 }
 
+function setStatus(handle, nextStatus) {
+  const prev = handle.status;
+  handle.status = nextStatus;
+  if (prev !== nextStatus) {
+    logEvent('bot.status.change', { botId: handle.botId, from: prev, to: nextStatus });
+  }
+}
+
 async function destroyClientQuietly(client) {
   if (!client) return;
   try {
@@ -134,7 +139,7 @@ async function handleTokenInvalid(botId, err) {
   const handle = handles.get(botId);
   if (!handle) return;
 
-  handle.status = 'TOKEN_INVALID';
+  setStatus(handle, 'TOKEN_INVALID');
   handle.lastError = err || new Error('token invalidated');
 
   try {
@@ -159,7 +164,7 @@ function attachLifecycleListeners(handle, client, botId) {
   client.once(Events.ClientReady, async (readyClient) => {
     await withHandleMutex(handle, async () => {
       handle.discordBotUserId = readyClient.user.id;
-      handle.status = 'READY';
+      setStatus(handle, 'READY');
       rebuildKnownBotUserIds();
       try {
         await botRepository.setBotDiscordUserId(botId, readyClient.user.id);
@@ -167,6 +172,7 @@ function attachLifecycleListeners(handle, client, botId) {
         logError(botId, err, 'bot.ready.persist_user_id_failed');
       }
       logEvent('bot.ready', { botId, userId: readyClient.user.id });
+      logEvent('bot.connect.success', { botId, userId: readyClient.user.id });
     });
   });
 
@@ -208,9 +214,10 @@ async function connectInsideLock(botId) {
   try {
     token = await botRepository.getDecryptedToken(botId);
   } catch (err) {
-    handle.status = 'UNHEALTHY';
+    setStatus(handle, 'UNHEALTHY');
     handle.lastError = err;
     logError(botId, err, 'bot.connect.token_lookup_failed');
+    logError(botId, err, 'bot.connect.failed');
     return;
   }
 
@@ -225,11 +232,13 @@ async function connectInsideLock(botId) {
     const msg = (err && err.message) || '';
     if (TOKEN_INVALID_RE.test(msg)) {
       await handleTokenInvalid(botId, err);
+      logError(botId, err, 'bot.connect.failed');
       return;
     }
-    handle.status = 'UNHEALTHY';
+    setStatus(handle, 'UNHEALTHY');
     handle.lastError = err;
     logError(botId, err, 'bot.login.failed');
+    logError(botId, err, 'bot.connect.failed');
     await destroyClientQuietly(client);
     handle.client = null;
   }
@@ -242,7 +251,7 @@ async function internalDisconnect(botId) {
   const client = handle.client;
   handle.client = null;
   handle.discordBotUserId = null;
-  handle.status = 'DISCONNECTED';
+  setStatus(handle, 'DISCONNECTED');
 
   await destroyClientQuietly(client);
   handles.delete(botId);
@@ -260,6 +269,7 @@ async function disconnectBot(botId) {
 
 async function restartBot(botId) {
   return withBootLock(botId, async () => {
+    logEvent('bot.restart', { botId });
     await internalDisconnect(botId);
     await connectInsideLock(botId);
   });

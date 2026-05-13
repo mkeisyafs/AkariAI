@@ -1,0 +1,40 @@
+src/services/botManager.js:50:  logger.info(event, ctx);
+src/services/botManager.js:54:  logger.error(event, {
+src/events/messageCreate.js:70:    logger.info('msg.sender.classified', { botId, guildId, channelId, senderType });
+src/events/messageCreate.js:84:        logger.error('msg.moderation.failed', {
+src/events/messageCreate.js:129:        logger.info('msg.mention.bypass', { botId, guildId, channelId, senderBotId });
+src/events/messageCreate.js:133:          logger.debug('msg.pair.roll', {
+src/events/messageCreate.js:145:        logger.debug('msg.pair.roll', {
+src/events/messageCreate.js:174:      logger.info('msg.refused', {
+src/events/messageCreate.js:188:      logger.error('msg.ai_key.fetch_failed', {
+src/events/messageCreate.js:228:      logger.error('msg.ai.generate_failed', {
+src/events/messageCreate.js:249:      logger.info('msg.reply.sent', {
+src/events/messageCreate.js:256:      logger.error('msg.reply.failed', {
+src/web/routes/admin/bots.js:31:  logger.error('admin.bots.error', {
+src/web/routes/admin/bots.js:114:    logger.info('admin.bot.created', {
+src/web/routes/admin/bots.js:162:    logger.info('admin.bot.updated', {
+src/web/routes/admin/bots.js:194:    logger.info('admin.bot.token.rotated', { botId: id });
+src/web/routes/admin/bots.js:215:    logger.info('admin.bot.api_key.rotated', { botId: id, cleared: newApiKey === null });
+src/web/routes/admin/bots.js:246:    logger.info('admin.bot.deleted', { botId: id });
+src/web/routes/admin/bots.js:262:    logger.info('admin.bot.restarted', { botId: id });
+src/services/slashCommandDeployer.js:10:  logger.info(event, ctx);
+src/services/slashCommandDeployer.js:21:      logger.warn('slash.deploy.failed', { botId, guildId, error: 'bot not found' });
+src/services/slashCommandDeployer.js:25:      logger.warn('slash.deploy.failed', { botId, guildId, error: 'bot missing discordAppId' });
+src/services/slashCommandDeployer.js:51:    logger.error('slash.deploy.failed', { botId, guildId, error: message });
+src/index.js:36:    logger.warn('globalAdmins.invalidEntries', { ignored });
+src/index.js:52:  logger.info('globalAdmins.loaded', { count: globalAdmins.size });
+src/index.js:65:  logger.info('db.connected');
+src/index.js:69:    logger.info('backfill.done', result || {});
+src/index.js:71:    logger.error('backfill.failed', { error: err && err.message ? err.message : String(err) });
+src/index.js:76:  logger.info('bots.connected', connectSummary);
+src/index.js:79:    logger.info('bots.empty', { hint: 'No bots configured — add via admin UI' });
+src/index.js:90:      logger.info('bot.wired', { botId: h.botId });
+src/index.js:92:      logger.error('bot.wireup.failed', {
+src/index.js:101:    .then((summary) => logger.info('slash.deployed', summary || {}))
+src/index.js:103:      logger.error('slash.deploy.failed', {
+src/index.js:109:  logger.info('web.started');
+src/index.js:115:  logger.info('shutdown.start', { signal });
+src/index.js:121:    logger.info('shutdown.botsDisconnected', { count: handles.length });
+src/index.js:127:    logger.info('shutdown.dbDisconnected');
+src/index.js:129:    logger.error('shutdown.dbDisconnect.failed', {
+src/index.js:145:  logger.error('unhandledRejection', {

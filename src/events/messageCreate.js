@@ -9,14 +9,7 @@ import { checkToxicity } from '../services/moderationService.js';
 import { getCooldown, setCooldown } from '../services/botCooldowns.js';
 import botManager from '../services/botManager.js';
 import loopGuard from '../services/loopGuard.js';
-
-function log(event, payload) {
-  try {
-    console.log(JSON.stringify({ ts: new Date().toISOString(), level: 'info', event, ...payload }));
-  } catch {
-    /* swallow */
-  }
-}
+import { logger } from '../utils/logger.js';
 
 export default {
   name: 'messageCreate',
@@ -67,6 +60,15 @@ export default {
       }
     }
 
+    const senderType = isHuman
+      ? 'human'
+      : isOurBot
+      ? 'our-bot'
+      : message.author.bot
+      ? 'external-bot'
+      : 'self';
+    logger.info('msg.sender.classified', { botId, guildId, channelId, senderType });
+
     if (isHuman) {
       loopGuard.registerHumanMessage(guildId, channelId);
     }
@@ -79,7 +81,12 @@ export default {
           await checkToxicity(message, guildConfig);
         }
       } catch (err) {
-        console.error('Moderation error:', err.message);
+        logger.error('msg.moderation.failed', {
+          botId,
+          guildId,
+          channelId,
+          error: err && err.message ? err.message : String(err),
+        });
       }
     }
 
@@ -119,10 +126,31 @@ export default {
       if (weAreMentioned && effective.mentionBypassMatrix) {
         // Explicit @mention bypasses pair-chance but still respects loopGuard gates.
         shouldReply = true;
+        logger.info('msg.mention.bypass', { botId, guildId, channelId, senderBotId });
       } else {
         const chance = await botPairChanceRepository.getPairChance(guildId, senderBotId, botId);
-        if (!chance || chance <= 0) return;
-        shouldReply = Math.random() * 100 < chance;
+        if (!chance || chance <= 0) {
+          logger.debug('msg.pair.roll', {
+            botId,
+            senderBotId,
+            guildId,
+            channelId,
+            chance: chance || 0,
+            decision: 'skip',
+          });
+          return;
+        }
+        const roll = Math.random() * 100;
+        shouldReply = roll < chance;
+        logger.debug('msg.pair.roll', {
+          botId,
+          senderBotId,
+          guildId,
+          channelId,
+          chance,
+          roll,
+          decision: shouldReply ? 'reply' : 'skip',
+        });
         if (!shouldReply) return;
       }
     } else {
@@ -143,7 +171,7 @@ export default {
       { isHumanInitiated: skipGating }
     );
     if (!reservation.ok) {
-      log('msg.refused', {
+      logger.info('msg.refused', {
         botId,
         guildId,
         channelId,
@@ -157,7 +185,12 @@ export default {
     try {
       aiApiKey = await botRepository.getDecryptedApiKey(botId);
     } catch (err) {
-      console.error('AI key fetch failed:', err.message);
+      logger.error('msg.ai_key.fetch_failed', {
+        botId,
+        guildId,
+        channelId,
+        error: err && err.message ? err.message : String(err),
+      });
       reservation.release();
       return;
     }
@@ -192,7 +225,12 @@ export default {
     try {
       response = await generateAIResponseWithKnowledge(message.content, aiConfig, aiContext);
     } catch (err) {
-      console.error('AI error:', err.message);
+      logger.error('msg.ai.generate_failed', {
+        botId,
+        guildId,
+        channelId,
+        error: err && err.message ? err.message : String(err),
+      });
       reservation.release();
       return;
     }
@@ -208,14 +246,19 @@ export default {
         setCooldown(botId, guildId, channelId, Date.now());
       }
       reservation.commit();
-      log('msg.reply.sent', {
+      logger.info('msg.reply.sent', {
         botId,
         guildId,
         channelId,
         isCrossBot: isOurBot,
       });
     } catch (err) {
-      console.error('Reply error:', err.message);
+      logger.error('msg.reply.failed', {
+        botId,
+        guildId,
+        channelId,
+        error: err && err.message ? err.message : String(err),
+      });
       reservation.release();
     }
   },

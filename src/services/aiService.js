@@ -50,6 +50,15 @@ export async function generateAIResponse(userMessage, config, context) {
       content: currentUserContent,
     });
 
+    if (!config.aiApiKey || typeof config.aiApiKey !== 'string' || !config.aiApiKey.trim()) {
+      console.error(`AI API Error: bot has no API key configured (botId=${botId}). Use the admin UI "Rotate API Key" button to set one, or set DEFAULT_AI_API_KEY in .env before re-running migrate:multi-bot on a fresh DB.`);
+      return null;
+    }
+    if (!config.aiBaseUrl || !config.aiModel) {
+      console.error(`AI API Error: bot is missing aiBaseUrl or aiModel (botId=${botId}). Edit the bot in the admin UI.`);
+      return null;
+    }
+
     const response = await axios.post(
       `${config.aiBaseUrl}/chat/completions`,
       {

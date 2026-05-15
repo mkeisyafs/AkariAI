@@ -13,6 +13,7 @@ import {
   Lock,
   Terminal,
   Bot,
+  Smile,
   Loader2,
   ChevronRight,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ import KnowledgeConfigForm from '../components/config/KnowledgeConfigForm';
 import WhitelistConfigForm from '../components/config/WhitelistConfigForm';
 import CommandsConfigForm from '../components/config/CommandsConfigForm';
 import GuildBotsConfigForm from '../components/config/GuildBotsConfigForm';
+import ReactionRolesConfigForm from '../components/config/ReactionRolesConfigForm';
 import type { Guild } from '../types';
 
 type Tab =
@@ -33,6 +35,7 @@ type Tab =
   | 'welcome'
   | 'verification'
   | 'knowledge'
+  | 'reaction-roles'
   | 'whitelist'
   | 'commands';
 
@@ -86,6 +89,13 @@ const TABS: TabDef[] = [
     shortName: 'Knowledge',
     description: 'Custom facts your bot can recall in chat.',
     icon: BookOpen,
+  },
+  {
+    id: 'reaction-roles',
+    name: 'Reaction Roles',
+    shortName: 'Roles',
+    description: 'Map emoji reactions to role grants on bot-posted messages.',
+    icon: Smile,
   },
   {
     id: 'commands',
@@ -312,6 +322,9 @@ export default function GuildConfig() {
               )}
               {activeTab === 'knowledge' && guildId && (
                 <KnowledgeConfigForm guildId={guildId} />
+              )}
+              {activeTab === 'reaction-roles' && guildId && (
+                <ReactionRolesConfigForm guildId={guildId} />
               )}
               {activeTab === 'commands' && guildId && (
                 <CommandsConfigForm

@@ -158,3 +158,33 @@ export interface GuildBotEntry {
 
 // PairMatrix: { [speakerBotId]: { [targetBotId]: chance 0–100 } }
 export type PairMatrix = Record<string, Record<string, number>>;
+
+// ─── Reaction Roles ────────────────────────────────────────────────────────
+
+export interface ReactionRoleBinding {
+  id: string;
+  messageId: string;
+  emoji: string;
+  roleId: string;
+  createdAt: string;
+}
+
+export interface ReactionRoleMessage {
+  id: string;
+  botId: string;
+  guildId: string;
+  channelId: string;
+  messageId: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  bindings: ReactionRoleBinding[];
+}
+
+export interface ReactionRoleBotOption {
+  id: string;
+  name: string;
+  discordAppId: string;
+  discordBotUserId: string | null;
+}

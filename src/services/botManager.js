@@ -39,6 +39,21 @@ const handles = new Map();
 /** @type {Set<string>} — rebuilt on every READY/non-READY transition. */
 let knownBotUserIds = new Set();
 
+// Wireup hook — invoked once per fresh Client right after a successful
+// `client.login()`, before ClientReady fires. Set by the boot module so
+// botManager stays free of any handler/event imports (avoids a circular
+// dep: botManager → eventHandler → … → botManager). Required because
+// admin-created and restarted bots take paths that don't go through
+// index.js's startup wireup loop — without this, those clients connect
+// to Discord with zero `messageCreate` listeners and look "online but
+// silent".
+/** @type {null | ((client: import('discord.js').Client, botId: string) => Promise<void> | void)} */
+let wireupFn = null;
+
+function setWireup(fn) {
+  wireupFn = typeof fn === 'function' ? fn : null;
+}
+
 // Per-bot boot lock. Serializes connect/disconnect/restart for a given botId
 // across the window where `handles` has no entry (so handle.mutex can't help).
 // Distinct from handle.mutex, which guards intra-handle work like ready-handler
@@ -228,6 +243,13 @@ async function connectInsideLock(botId) {
   try {
     await client.login(token);
     logEvent('bot.login', { botId });
+    if (wireupFn) {
+      try {
+        await wireupFn(client, botId);
+      } catch (wireErr) {
+        logError(botId, wireErr, 'bot.wireup.failed');
+      }
+    }
   } catch (err) {
     const msg = (err && err.message) || '';
     if (TOKEN_INVALID_RE.test(msg)) {
@@ -366,4 +388,5 @@ export default {
   isOurBot,
   getBotIdByUserId,
   getAllHandles,
+  setWireup,
 };

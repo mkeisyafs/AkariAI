@@ -64,6 +64,12 @@ async function startBot() {
   await connectDatabase();
   logger.info('db.connected');
 
+  botManager.setWireup(async (client, botId) => {
+    await loadCommandsForBot(client, botId);
+    await registerEventsForClient(client, botId);
+    logger.info('bot.wired', { botId });
+  });
+
   try {
     const result = await runBackfill();
     logger.info('backfill.done', result || {});
@@ -77,23 +83,6 @@ async function startBot() {
 
   if (connectSummary.attempted === 0) {
     logger.info('bots.empty', { hint: 'No bots configured — add via admin UI' });
-  }
-
-  const handles = botManager.getAllHandles();
-  for (const h of handles) {
-    if (h.status !== 'READY' && h.status !== 'CONNECTING') continue;
-    const client = botManager.getClient(h.botId);
-    if (!client) continue;
-    try {
-      await loadCommandsForBot(client, h.botId);
-      registerEventsForClient(client, h.botId);
-      logger.info('bot.wired', { botId: h.botId });
-    } catch (err) {
-      logger.error('bot.wireup.failed', {
-        botId: h.botId,
-        error: err && err.message ? err.message : String(err),
-      });
-    }
   }
 
   Promise.resolve()

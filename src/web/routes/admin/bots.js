@@ -101,7 +101,7 @@ router.post('/', async (req, res) => {
       return badRequest(res, 'Token belongs to a user, not a bot');
     }
 
-    const createArgs = { name: name.trim(), discordAppId, token };
+    const createArgs = { name: name.trim(), discordAppId, token, status: 'ENABLED' };
     if (typeof aiBaseUrl === 'string') createArgs.aiBaseUrl = aiBaseUrl;
     if (typeof aiModel === 'string') createArgs.aiModel = aiModel;
     if (typeof aiApiKey === 'string' && aiApiKey.length > 0) createArgs.aiApiKey = aiApiKey;

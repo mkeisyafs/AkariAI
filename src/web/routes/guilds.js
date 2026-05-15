@@ -275,7 +275,35 @@ router.patch('/:guildId/config', requireAuth, requireWhitelist, requireGuildAcce
       }
     }
 
+    const previousConfig = await guildConfigRepository.findByGuildId(guildId);
     const config = await guildConfigRepository.upsert(guildId, filteredUpdates);
+
+    if ('disabledCommands' in filteredUpdates) {
+      const before = JSON.stringify((previousConfig?.disabledCommands || []).slice().sort());
+      const after = JSON.stringify((filteredUpdates.disabledCommands || []).slice().sort());
+      if (before !== after) {
+        Promise.resolve()
+          .then(async () => {
+            const { deployBotCommandsToGuild } = await import('../../services/slashCommandDeployer.js');
+            const guildBotSettingsRepository = (
+              await import('../../database/repositories/guildBotSettingsRepository.js')
+            ).default;
+
+            const settings = await guildBotSettingsRepository.getForGuild(guildId);
+            const enabledBots = settings
+              .filter((s) => s.enabled && s.bot && s.bot.status === 'ENABLED')
+              .map((s) => s.bot);
+
+            await Promise.all(
+              enabledBots.map((b) => deployBotCommandsToGuild(b.id, guildId))
+            );
+          })
+          .catch((err) =>
+            console.error('disabledCommands.redeploy.failed', err?.message || String(err))
+          );
+      }
+    }
+
     res.json(config);
   } catch (error) {
     console.error('Error updating guild config:', error);

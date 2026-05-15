@@ -1,6 +1,7 @@
 import { REST, Routes } from 'discord.js';
 import botRepository from '../database/repositories/botRepository.js';
 import guildBotSettingsRepository from '../database/repositories/guildBotSettingsRepository.js';
+import guildConfigRepository from '../database/repositories/guildConfigRepository.js';
 import { getBotCommands } from './botCommands.js';
 import { logger } from '../utils/logger.js';
 
@@ -10,9 +11,6 @@ function logEvent(event, ctx = {}) {
   logger.info(event, ctx);
 }
 
-// Bulk-overwrite a bot's slash commands for a single guild via REST.
-// Returns a plain result object — never throws, so callers can aggregate
-// across many (botId, guildId) pairs without abort-on-first-failure.
 export async function deployBotCommandsToGuild(botId, guildId) {
   logEvent('slash.deploy.attempt', { botId, guildId });
   try {
@@ -26,17 +24,16 @@ export async function deployBotCommandsToGuild(botId, guildId) {
       return { botId, guildId, status: 'failed', error: 'bot missing discordAppId' };
     }
 
+    const guildConfig = await guildConfigRepository.findByGuildId(guildId);
+    const disabledCommands = new Set(guildConfig?.disabledCommands || []);
+
     const collection = getBotCommands(botId);
     const commands = [...collection.values()]
       .filter((c) => c && c.data && typeof c.data.toJSON === 'function')
+      .filter((c) => !disabledCommands.has(c.data.name))
       .map((c) => c.data.toJSON());
 
-    if (commands.length === 0) {
-      return { botId, guildId, status: 'skipped', count: 0, reason: 'no commands loaded' };
-    }
-
     const token = await botRepository.getDecryptedToken(botId);
-
     const rest = new REST({ version: '10' }).setToken(token);
     const data = await rest.put(
       Routes.applicationGuildCommands(bot.discordAppId, guildId),
@@ -44,8 +41,13 @@ export async function deployBotCommandsToGuild(botId, guildId) {
     );
 
     const count = Array.isArray(data) ? data.length : commands.length;
-    logEvent('slash.deploy.success', { botId, guildId, count });
-    return { botId, guildId, status: 'deployed', count };
+    logEvent('slash.deploy.success', {
+      botId,
+      guildId,
+      count,
+      disabledCount: disabledCommands.size,
+    });
+    return { botId, guildId, status: 'deployed', count, disabledCount: disabledCommands.size };
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     logger.error('slash.deploy.failed', { botId, guildId, error: message });

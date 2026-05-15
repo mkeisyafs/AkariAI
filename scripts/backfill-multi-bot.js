@@ -50,16 +50,21 @@ export async function run() {
   const { default: prisma } = await import('../src/database/prisma.js');
 
   try {
-    // 5. Idempotency. Look up *outside* the transaction to fail fast.
     const existing = await prisma.bot.findFirst({
-      where: { isMigrated: true },
-      select: { id: true },
+      where: {
+        OR: [{ isMigrated: true }, { discordAppId: process.env.CLIENT_ID }],
+      },
+      select: { id: true, isMigrated: true },
     });
     if (existing) {
       console.log(
-        `${LOG_PREFIX} already migrated (botId=${existing.id}), no-op`
+        `${LOG_PREFIX} bot already exists for CLIENT_ID (botId=${existing.id}, isMigrated=${existing.isMigrated}), no-op`
       );
-      return { skipped: true, reason: 'already migrated', botId: existing.id };
+      return {
+        skipped: true,
+        reason: existing.isMigrated ? 'already migrated' : 'bot already exists for CLIENT_ID',
+        botId: existing.id,
+      };
     }
 
     // 6. Snapshot env values up here so encryption errors fail before any write.

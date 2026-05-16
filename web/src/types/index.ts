@@ -193,3 +193,26 @@ export interface ReactionRoleBotOption {
   discordAppId: string;
   discordBotUserId: string | null;
 }
+
+// ─── Bot Lore (relationships) ──────────────────────────────────────────────
+
+export interface BotRelationship {
+  id: string;
+  guildId: string;
+  fromBotId: string;
+  toBotId: string;
+  relationship: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BotLoreBot {
+  id: string;
+  name: string;
+  enabledInGuild: boolean;
+}
+
+export interface BotRelationshipsResponse {
+  bots: BotLoreBot[];
+  relationships: BotRelationship[];
+}

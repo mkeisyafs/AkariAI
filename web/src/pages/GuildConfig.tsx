@@ -10,6 +10,7 @@ import {
   Users,
   CheckCircle,
   BookOpen,
+  BookHeart,
   Lock,
   Terminal,
   Bot,
@@ -26,11 +27,13 @@ import WhitelistConfigForm from '../components/config/WhitelistConfigForm';
 import CommandsConfigForm from '../components/config/CommandsConfigForm';
 import GuildBotsConfigForm from '../components/config/GuildBotsConfigForm';
 import ReactionRolesConfigForm from '../components/config/ReactionRolesConfigForm';
+import BotLoreForm from '../components/config/BotLoreForm';
 import type { Guild } from '../types';
 
 type Tab =
   | 'ai'
   | 'bots'
+  | 'lore'
   | 'moderation'
   | 'welcome'
   | 'verification'
@@ -61,6 +64,13 @@ const TABS: TabDef[] = [
     shortName: 'Bots',
     description: 'Bind one or more bots to this server.',
     icon: Bot,
+  },
+  {
+    id: 'lore',
+    name: 'Bot Lore',
+    shortName: 'Lore',
+    description: 'Define relationships between bots so they react to each other in character.',
+    icon: BookHeart,
   },
   {
     id: 'moderation',
@@ -301,6 +311,7 @@ export default function GuildConfig() {
                 <AIConfigForm config={config} onSave={updateConfig} loading={loading} />
               )}
               {activeTab === 'bots' && guildId && <GuildBotsConfigForm guildId={guildId} />}
+              {activeTab === 'lore' && guildId && <BotLoreForm guildId={guildId} />}
               {activeTab === 'moderation' && (
                 <ModerationConfigForm config={config} onSave={updateConfig} loading={loading} />
               )}

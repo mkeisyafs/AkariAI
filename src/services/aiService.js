@@ -2,8 +2,34 @@ import axios from 'axios';
 import NodeCache from 'node-cache';
 import { knowledgeService } from './knowledgeService.js';
 import conversationHistoryRepository from '../database/repositories/conversationHistoryRepository.js';
+import botRelationshipRepository from '../database/repositories/botRelationshipRepository.js';
+import botRepository from '../database/repositories/botRepository.js';
 
 const cache = new NodeCache({ stdTTL: 300 });
+
+async function buildRelationshipContext(guildId, botId) {
+  if (!guildId || !botId) return null;
+  const rels = await botRelationshipRepository.listFromBot(guildId, botId);
+  if (rels.length === 0) return null;
+
+  const targetIds = [...new Set(rels.map((r) => r.toBotId))];
+  const targetBots = await Promise.all(targetIds.map((id) => botRepository.getBotById(id)));
+  const nameById = new Map();
+  targetBots.forEach((b) => {
+    if (b) nameById.set(b.id, b.name);
+  });
+
+  const lines = rels
+    .map((r) => {
+      const name = nameById.get(r.toBotId);
+      if (!name) return null;
+      return `- ${name}: ${r.relationship}`;
+    })
+    .filter(Boolean);
+
+  if (lines.length === 0) return null;
+  return `Other bots in this server, and how you relate to them:\n${lines.join('\n')}`;
+}
 
 export async function generateAIResponse(userMessage, config, context) {
   const {
@@ -19,6 +45,11 @@ export async function generateAIResponse(userMessage, config, context) {
 
   try {
     let systemContent = config.aiPersonality;
+
+    const relationshipContext = await buildRelationshipContext(config.guildId, botId);
+    if (relationshipContext) {
+      systemContent += '\n\n' + relationshipContext;
+    }
 
     if (knowledgeContext) {
       systemContent += '\n\n' + knowledgeContext;

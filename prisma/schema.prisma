@@ -275,3 +275,17 @@ model ReactionRoleBinding {
   @@unique([messageId, emoji])
   @@index([messageId])
 }
+
+model BotRelationship {
+  id           String   @id @default(cuid())
+  guildId      String
+  fromBotId    String
+  toBotId      String
+  relationship String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([guildId, fromBotId, toBotId])
+  @@index([guildId, fromBotId])
+  @@index([guildId])
+}

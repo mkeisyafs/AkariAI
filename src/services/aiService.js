@@ -76,7 +76,15 @@ export async function generateAIResponse(userMessage, config, context) {
       }
     );
 
-    const aiResponse = response.data.choices[0].message.content;
+    const choice = response.data?.choices?.[0];
+    const aiResponse = choice?.message?.content;
+    if (typeof aiResponse !== 'string' || aiResponse.length === 0) {
+      const preview = JSON.stringify(response.data).slice(0, 500);
+      console.error(
+        `AI API Error: provider returned no choices[0].message.content (botId=${botId}, baseUrl=${config.aiBaseUrl}, model=${config.aiModel}). Body preview: ${preview}`
+      );
+      return null;
+    }
 
     if (senderIsOurBot && senderBotName) {
       await conversationHistoryRepository.addCrossBotMessage(
@@ -111,7 +119,14 @@ export async function generateAIResponse(userMessage, config, context) {
 
     return aiResponse;
   } catch (error) {
-    console.error('AI API Error:', error.response?.data || error.message);
+    const status = error.response?.status;
+    const body = error.response?.data;
+    const detail = body
+      ? JSON.stringify(body).slice(0, 500)
+      : error.message || String(error);
+    console.error(
+      `AI API Error: ${status ? `HTTP ${status} ` : ''}botId=${botId} baseUrl=${config?.aiBaseUrl} model=${config?.aiModel} — ${detail}`
+    );
     return null;
   }
 }

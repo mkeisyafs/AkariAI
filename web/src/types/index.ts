@@ -135,6 +135,11 @@ export interface GuildBotSettings {
   botId: string;
   enabled: boolean;
   personalityOverride: string | null;
+  aiBaseUrlOverride: string | null;
+  aiModelOverride: string | null;
+  aiMaxTokensOverride: number | null;
+  aiContextMessagesOverride: number | null;
+  hasApiKeyOverride: boolean;
   responseChance: number | null;
   cooldownMs: number | null;
   replyOnlyMode: boolean | null;

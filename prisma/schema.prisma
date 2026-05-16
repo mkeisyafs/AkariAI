@@ -201,11 +201,16 @@ model GuildBotSettings {
   enabled Boolean @default(false)
 
   // Per-guild overrides (null = inherit from Bot)
-  personalityOverride String?  @db.Text
-  responseChance      Int?
-  cooldownMs          Int?
-  replyOnlyMode       Boolean?
-  allowedChannels     String[] @default([])
+  personalityOverride       String?  @db.Text
+  aiBaseUrlOverride         String?
+  aiModelOverride           String?
+  aiMaxTokensOverride       Int?
+  aiContextMessagesOverride Int?
+  encryptedApiKeyOverride   String?  @db.Text
+  responseChance            Int?
+  cooldownMs                Int?
+  replyOnlyMode             Boolean?
+  allowedChannels           String[] @default([])
 
   // Inter-bot conversation settings
   botToBotEnabled        Boolean @default(false)

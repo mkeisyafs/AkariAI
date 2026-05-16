@@ -4,17 +4,20 @@ import guildBotSettingsRepository from '../../database/repositories/guildBotSett
 import botManager from '../../services/botManager.js';
 import { deployBotCommandsToGuild } from '../../services/slashCommandDeployer.js';
 import { requireGuildAdmin } from '../middleware/guildAdmin.js';
+import { encrypt } from '../../utils/encryption.js';
+import prisma from '../../database/prisma.js';
 
 const router = Router({ mergeParams: true });
 
 router.use(requireGuildAdmin);
 
-// Whitelist guards blind upsert of arbitrary fields (including FK/system columns
-// and per-guild override values callers shouldn't be able to set). Any key not
-// in this set is silently dropped from the patch before it reaches Prisma.
 const UPDATE_WHITELIST = new Set([
   'enabled',
   'personalityOverride',
+  'aiBaseUrlOverride',
+  'aiModelOverride',
+  'aiMaxTokensOverride',
+  'aiContextMessagesOverride',
   'responseChance',
   'cooldownMs',
   'replyOnlyMode',
@@ -61,6 +64,15 @@ function validatePatch(raw) {
   if ('personalityOverride' in patch && patch.personalityOverride !== null && typeof patch.personalityOverride !== 'string') {
     return { error: 'personalityOverride must be string or null' };
   }
+  for (const key of ['aiBaseUrlOverride', 'aiModelOverride']) {
+    if (key in patch && patch[key] !== null && typeof patch[key] !== 'string') {
+      return { error: `${key} must be string or null` };
+    }
+    if (key in patch && typeof patch[key] === 'string') {
+      const trimmed = patch[key].trim();
+      patch[key] = trimmed === '' ? null : trimmed;
+    }
+  }
   if ('allowedChannels' in patch) {
     if (!Array.isArray(patch.allowedChannels)) return { error: 'allowedChannels must be array of strings' };
     if (!patch.allowedChannels.every((s) => typeof s === 'string')) {
@@ -71,6 +83,8 @@ function validatePatch(raw) {
   const ranges = [
     ['responseChance', { min: 0, max: 100, nullable: true }],
     ['cooldownMs', { min: 0, max: 3_600_000, nullable: true }],
+    ['aiMaxTokensOverride', { min: 1, max: 32_000, nullable: true }],
+    ['aiContextMessagesOverride', { min: 0, max: 200, nullable: true }],
     ['maxChainDepth', { min: 1, max: 100, nullable: false }],
     ['channelCooldownMs', { min: 0, max: 3_600_000, nullable: false }],
     ['circuitBreakerCount', { min: 1, max: 10_000, nullable: false }],
@@ -101,6 +115,13 @@ router.get('/', async (req, res) => {
     const out = allBots.map((bot) => {
       const client = botManager.getClient(bot.id);
       const presentInGuild = !!client?.guilds?.cache?.get(guildId);
+      const raw = settingsByBotId.get(bot.id) || null;
+      const safeSettings = raw
+        ? (() => {
+            const { encryptedApiKeyOverride, ...rest } = raw;
+            return { ...rest, hasApiKeyOverride: !!encryptedApiKeyOverride };
+          })()
+        : null;
       return {
         bot: {
           id: bot.id,
@@ -109,7 +130,7 @@ router.get('/', async (req, res) => {
           discordBotUserId: bot.discordBotUserId,
           status: bot.status,
         },
-        settings: settingsByBotId.get(bot.id) || null,
+        settings: safeSettings,
         presentInGuild,
       };
     });
@@ -144,9 +165,38 @@ router.put('/:botId', async (req, res) => {
     }
 
     const updated = await guildBotSettingsRepository.upsert(guildId, botId, patch);
-    return res.json(updated);
+    const { encryptedApiKeyOverride, ...safe } = updated;
+    return res.json({ ...safe, hasApiKeyOverride: !!encryptedApiKeyOverride });
   } catch (err) {
     console.error('PUT guild bot failed:', err.message);
+    return res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+router.put('/:botId/api-key', async (req, res) => {
+  try {
+    const { guildId, botId } = req.params;
+    const { newApiKey } = req.body || {};
+
+    const bot = await botRepository.getBotById(botId);
+    if (!bot) return res.status(404).json({ error: 'Bot not found' });
+
+    if (newApiKey !== null && (typeof newApiKey !== 'string' || newApiKey.length === 0)) {
+      return badRequest(res, 'newApiKey must be a non-empty string or null');
+    }
+
+    const encryptedApiKeyOverride = newApiKey === null ? null : encrypt(newApiKey);
+    const updated = await prisma.guildBotSettings.upsert({
+      where: { guildId_botId: { guildId, botId } },
+      create: { guildId, botId, encryptedApiKeyOverride },
+      update: { encryptedApiKeyOverride },
+    });
+    return res.json({
+      ok: true,
+      hasApiKeyOverride: !!updated.encryptedApiKeyOverride,
+    });
+  } catch (err) {
+    console.error('PUT guild bot api-key failed:', err.message);
     return res.status(500).json({ error: 'Internal error' });
   }
 });

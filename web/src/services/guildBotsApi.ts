@@ -8,6 +8,13 @@ export const guildBotsApi = {
     api
       .put<GuildBotSettings>(`/guilds/${guildId}/bots/${botId}`, patch)
       .then(r => r.data),
+  rotateApiKey: (guildId: string, botId: string, newApiKey: string | null) =>
+    api
+      .put<{ ok: true; hasApiKeyOverride: boolean }>(
+        `/guilds/${guildId}/bots/${botId}/api-key`,
+        { newApiKey }
+      )
+      .then(r => r.data),
   redeployCommands: (guildId: string, botId: string) =>
     api
       .post<{ status: string; count?: number }>(

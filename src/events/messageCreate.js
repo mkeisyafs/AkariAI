@@ -181,26 +181,12 @@ export default {
       return;
     }
 
-    let aiApiKey = null;
-    try {
-      aiApiKey = await botRepository.getDecryptedApiKey(botId);
-    } catch (err) {
-      logger.error('msg.ai_key.fetch_failed', {
-        botId,
-        guildId,
-        channelId,
-        error: err && err.message ? err.message : String(err),
-      });
-      reservation.release();
-      return;
-    }
-
     const aiConfig = {
       guildId,
       aiPersonality: effective.aiPersonality,
       aiBaseUrl: effective.aiBaseUrl,
       aiModel: effective.aiModel,
-      aiApiKey,
+      aiApiKey: effective.aiApiKey,
       aiMaxTokens: effective.aiMaxTokens,
       aiContextMessages: effective.aiContextMessages,
     };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Plus, MessageSquare } from 'lucide-react';
+import { Trash2, Plus, MessageSquare, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { GuildConfig } from '../../types';
 
@@ -13,14 +13,8 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
   const [aiEnabled, setAiEnabled] = useState(config.aiEnabled ?? true);
   const [aiReplyOnlyMode, setAiReplyOnlyMode] = useState(config.aiReplyOnlyMode ?? false);
   const [formData, setFormData] = useState({
-    aiBaseUrl: config.aiBaseUrl,
-    aiModel: config.aiModel,
-    aiApiKey: config.aiApiKey,
-    aiPersonality: config.aiPersonality,
     aiResponseChance: config.aiResponseChance,
     aiCooldown: config.aiCooldown,
-    aiMaxTokens: config.aiMaxTokens,
-    aiContextMessages: config.aiContextMessages,
   });
   const [allowedChannels, setAllowedChannels] = useState<string[]>(config.aiAllowedChannels || []);
   const [newChannelId, setNewChannelId] = useState('');
@@ -29,14 +23,8 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
     setAiEnabled(config.aiEnabled ?? true);
     setAiReplyOnlyMode(config.aiReplyOnlyMode ?? false);
     setFormData({
-      aiBaseUrl: config.aiBaseUrl,
-      aiModel: config.aiModel,
-      aiApiKey: config.aiApiKey,
-      aiPersonality: config.aiPersonality,
       aiResponseChance: config.aiResponseChance,
       aiCooldown: config.aiCooldown,
-      aiMaxTokens: config.aiMaxTokens,
-      aiContextMessages: config.aiContextMessages,
     });
     setAllowedChannels(config.aiAllowedChannels || []);
   }, [config]);
@@ -46,7 +34,7 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
       await onSave({ aiEnabled: !aiEnabled });
       setAiEnabled(!aiEnabled);
       toast.success(`AI chat ${!aiEnabled ? 'enabled' : 'disabled'}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to update AI status');
     }
   };
@@ -56,7 +44,7 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
       await onSave({ aiReplyOnlyMode: !aiReplyOnlyMode });
       setAiReplyOnlyMode(!aiReplyOnlyMode);
       toast.success(`Reply-only mode ${!aiReplyOnlyMode ? 'enabled' : 'disabled'}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to update reply-only mode');
     }
   };
@@ -78,7 +66,7 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
       setAllowedChannels(updatedChannels);
       setNewChannelId('');
       toast.success('Channel added');
-    } catch (error) {
+    } catch {
       toast.error('Failed to add channel');
     }
   };
@@ -89,7 +77,7 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
       await onSave({ aiAllowedChannels: updatedChannels });
       setAllowedChannels(updatedChannels);
       toast.success('Channel removed');
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove channel');
     }
   };
@@ -99,15 +87,37 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
     await onSave(formData);
   };
 
-  const maskApiKey = (key: string) => {
-    if (!key || key.length < 8) return key;
-    return `${key.slice(0, 4)}${'*'.repeat(key.length - 8)}${key.slice(-4)}`;
-  };
-
   return (
     <div className="space-y-5">
+      <div
+        role="note"
+        className="rounded-lg border border-brand-500/30 bg-brand-500/10 p-4 md:p-5"
+      >
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-600/20 ring-1 ring-brand-500/40">
+            <Info className="h-4.5 w-4.5 text-brand-300" />
+          </span>
+          <div className="min-w-0 space-y-1.5">
+            <h4 className="font-semibold text-white">Per-server AI overrides moved</h4>
+            <p className="text-xs md:text-sm text-ink-secondary">
+              Model, base URL, API key, personality, max tokens, and context messages are now configured
+              per-bot. Open the <strong className="text-white">Bots</strong> tab, expand the bot card, and
+              use the <strong className="text-white">Per-server overrides</strong> section. This lets
+              different bots in the same server use different models or API providers.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="surface-inset p-4 md:p-5 space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div>
+          <h4 className="font-semibold text-white">Response behavior</h4>
+          <p className="mt-0.5 text-xs md:text-sm text-ink-secondary">
+            How and when bots respond in this server.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 border-t border-line-subtle pt-4">
           <div className="flex items-start gap-3 min-w-0">
             <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-600/15 ring-1 ring-brand-500/30">
               <MessageSquare className="h-4.5 w-4.5 text-brand-300" />
@@ -221,53 +231,6 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="label">AI Base URL</label>
-          <input
-            type="url"
-            value={formData.aiBaseUrl}
-            onChange={(e) => setFormData({ ...formData, aiBaseUrl: e.target.value })}
-            className="input"
-            placeholder="https://api.example.com/v1"
-          />
-        </div>
-
-        <div>
-          <label className="label">AI Model</label>
-          <input
-            type="text"
-            value={formData.aiModel}
-            onChange={(e) => setFormData({ ...formData, aiModel: e.target.value })}
-            className="input"
-            placeholder="gpt-4, claude-3-opus, etc."
-          />
-        </div>
-
-        <div>
-          <label className="label">API Key</label>
-          <input
-            type="password"
-            value={formData.aiApiKey}
-            onChange={(e) => setFormData({ ...formData, aiApiKey: e.target.value })}
-            className="input"
-            placeholder="Enter API key"
-          />
-          {config.aiApiKey && (
-            <p className="helper">Current: {maskApiKey(config.aiApiKey)}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="label">Personality</label>
-          <textarea
-            value={formData.aiPersonality}
-            onChange={(e) => setFormData({ ...formData, aiPersonality: e.target.value })}
-            rows={4}
-            className="textarea"
-            placeholder="You are a helpful and friendly Discord bot assistant."
-          />
-        </div>
-
-        <div>
           <div className="flex items-center justify-between">
             <label className="label !mb-0">Response Chance</label>
             <span className="text-sm font-semibold text-brand-300 tabular-nums">
@@ -303,51 +266,8 @@ export default function AIConfigForm({ config, onSave, loading }: AIConfigFormPr
           />
         </div>
 
-        <div>
-          <label className="label">Max Tokens</label>
-          <input
-            type="number"
-            min="1"
-            max="32000"
-            value={formData.aiMaxTokens}
-            onChange={(e) =>
-              setFormData({ ...formData, aiMaxTokens: parseInt(e.target.value) })
-            }
-            className="input"
-          />
-          <p className="helper">
-            Maximum number of tokens in AI responses (1–32000). Lower values = shorter responses.
-          </p>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between">
-            <label className="label !mb-0">Context Messages</label>
-            <span className="text-sm font-semibold text-brand-300 tabular-nums">
-              {formData.aiContextMessages}
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="50"
-            value={formData.aiContextMessages}
-            onChange={(e) =>
-              setFormData({ ...formData, aiContextMessages: parseInt(e.target.value) })
-            }
-            className="w-full mt-2 accent-brand-500"
-          />
-          <div className="mt-1 flex justify-between text-[11px] text-ink-muted">
-            <span>No context</span>
-            <span>50 messages</span>
-          </div>
-          <p className="helper">
-            Number of previous messages the bot remembers per channel. Higher values = better context but more tokens used.
-          </p>
-        </div>
-
         <button type="submit" disabled={loading} className="btn btn-primary w-full btn-lg">
-          {loading ? 'Saving…' : 'Save AI Configuration'}
+          {loading ? 'Saving…' : 'Save response behavior'}
         </button>
       </form>
     </div>

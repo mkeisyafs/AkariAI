@@ -44,5 +44,15 @@ export function useGuildBots(guildId: string | undefined) {
     [guildId, refresh]
   );
 
-  return { items, loading, error, refresh, updateBot, redeployCommands };
+  const rotateApiKey = useCallback(
+    async (botId: string, newApiKey: string | null) => {
+      if (!guildId) return null;
+      const result = await guildBotsApi.rotateApiKey(guildId, botId, newApiKey);
+      await refresh();
+      return result;
+    },
+    [guildId, refresh]
+  );
+
+  return { items, loading, error, refresh, updateBot, redeployCommands, rotateApiKey };
 }

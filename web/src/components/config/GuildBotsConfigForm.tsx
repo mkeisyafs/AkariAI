@@ -1,8 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bot as BotIcon, ChevronDown, ChevronRight, ExternalLink, Save, Undo2, AlertCircle } from 'lucide-react';
+import {
+  Bot as BotIcon,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Save,
+  Undo2,
+  AlertCircle,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Loader2,
+  ShieldCheck,
+  ShieldAlert,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useGuildBots } from '../../hooks/useGuildBots';
 import PairChanceMatrix, { type BotLite } from './PairChanceMatrix';
+import Modal from '../admin/Modal';
 import type { GuildBotEntry, GuildBotSettings } from '../../types';
 
 interface GuildBotsConfigFormProps {
@@ -15,6 +30,10 @@ interface GuildBotsConfigFormProps {
  */
 interface OverrideFormState {
   personalityOverride: string;
+  aiBaseUrlOverride: string;
+  aiModelOverride: string;
+  aiMaxTokensOverride: string;
+  aiContextMessagesOverride: string;
   responseChance: string;
   cooldownMs: string;
   replyOnlyMode: 'inherit' | 'true' | 'false';
@@ -30,6 +49,10 @@ interface OverrideFormState {
 
 const DEFAULT_OVERRIDES: OverrideFormState = {
   personalityOverride: '',
+  aiBaseUrlOverride: '',
+  aiModelOverride: '',
+  aiMaxTokensOverride: '',
+  aiContextMessagesOverride: '',
   responseChance: '',
   cooldownMs: '',
   replyOnlyMode: 'inherit',
@@ -47,6 +70,11 @@ function settingsToForm(s: GuildBotSettings | null): OverrideFormState {
   if (!s) return { ...DEFAULT_OVERRIDES };
   return {
     personalityOverride: s.personalityOverride ?? '',
+    aiBaseUrlOverride: s.aiBaseUrlOverride ?? '',
+    aiModelOverride: s.aiModelOverride ?? '',
+    aiMaxTokensOverride: s.aiMaxTokensOverride == null ? '' : String(s.aiMaxTokensOverride),
+    aiContextMessagesOverride:
+      s.aiContextMessagesOverride == null ? '' : String(s.aiContextMessagesOverride),
     responseChance: s.responseChance == null ? '' : String(s.responseChance),
     cooldownMs: s.cooldownMs == null ? '' : String(s.cooldownMs),
     replyOnlyMode: s.replyOnlyMode == null ? 'inherit' : s.replyOnlyMode ? 'true' : 'false',
@@ -61,6 +89,23 @@ function settingsToForm(s: GuildBotSettings | null): OverrideFormState {
   };
 }
 
+function trimOrNull(v: string): string | null {
+  const t = v.trim();
+  return t === '' ? null : t;
+}
+
+function parseIntOrNull(v: string): number | null {
+  if (v.trim() === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && Number.isInteger(n) ? n : null;
+}
+
+function isInvalidIntOverride(v: string): boolean {
+  if (v.trim() === '') return false;
+  const n = Number(v);
+  return !(Number.isFinite(n) && Number.isInteger(n));
+}
+
 function formToPatch(f: OverrideFormState): Partial<GuildBotSettings> {
   const trimChannels = f.allowedChannels
     .split(',')
@@ -72,7 +117,11 @@ function formToPatch(f: OverrideFormState): Partial<GuildBotSettings> {
     return Number.isFinite(n) ? n : null;
   };
   return {
-    personalityOverride: f.personalityOverride.trim() === '' ? null : f.personalityOverride,
+    personalityOverride: trimOrNull(f.personalityOverride),
+    aiBaseUrlOverride: trimOrNull(f.aiBaseUrlOverride),
+    aiModelOverride: trimOrNull(f.aiModelOverride),
+    aiMaxTokensOverride: parseIntOrNull(f.aiMaxTokensOverride),
+    aiContextMessagesOverride: parseIntOrNull(f.aiContextMessagesOverride),
     responseChance: parseNumOrNull(f.responseChance),
     cooldownMs: parseNumOrNull(f.cooldownMs),
     replyOnlyMode: f.replyOnlyMode === 'inherit' ? null : f.replyOnlyMode === 'true',
@@ -90,6 +139,10 @@ function formToPatch(f: OverrideFormState): Partial<GuildBotSettings> {
 function formsEqual(a: OverrideFormState, b: OverrideFormState): boolean {
   return (
     a.personalityOverride === b.personalityOverride &&
+    a.aiBaseUrlOverride === b.aiBaseUrlOverride &&
+    a.aiModelOverride === b.aiModelOverride &&
+    a.aiMaxTokensOverride === b.aiMaxTokensOverride &&
+    a.aiContextMessagesOverride === b.aiContextMessagesOverride &&
     a.responseChance === b.responseChance &&
     a.cooldownMs === b.cooldownMs &&
     a.replyOnlyMode === b.replyOnlyMode &&
@@ -131,17 +184,141 @@ function statusPill(status: string) {
   }
 }
 
+interface ApiKeyOverrideModalProps {
+  open: boolean;
+  botName: string;
+  alreadySet: boolean;
+  onClose: () => void;
+  onSave: (newApiKey: string) => Promise<void>;
+}
+
+function ApiKeyOverrideModal({
+  open,
+  botName,
+  alreadySet,
+  onClose,
+  onSave,
+}: ApiKeyOverrideModalProps) {
+  const [apiKey, setApiKey] = useState('');
+  const [show, setShow] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setApiKey('');
+      setShow(false);
+      setError(null);
+      setSubmitting(false);
+    }
+  }, [open]);
+
+  const handleClose = () => {
+    if (submitting) return;
+    onClose();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    const trimmed = apiKey.trim();
+    if (!trimmed) {
+      setError('API key cannot be empty');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onSave(trimmed);
+    } catch (err: unknown) {
+      const ex = err as { response?: { data?: { error?: string } }; message?: string };
+      setError(ex?.response?.data?.error || ex?.message || 'Failed to save API key override');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const title = alreadySet
+    ? `Rotate API key override — ${botName}`
+    : `Set API key override — ${botName}`;
+
+  return (
+    <Modal open={open} onClose={handleClose} title={title} testId="guild-bot-api-key-modal">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <p className="text-sm text-gray-400">
+          This API key will be used by <strong>{botName}</strong> only in this server. It is encrypted
+          server-side and never displayed again. Leave the global bot key as-is — it will still apply
+          to other servers.
+        </p>
+        {error && (
+          <div
+            role="alert"
+            className="px-3 py-2 rounded bg-red-900/40 border border-red-700 text-red-200 text-sm"
+          >
+            {error}
+          </div>
+        )}
+        <label className="block">
+          <span className="block text-sm font-medium text-gray-300 mb-1">New API key</span>
+          <div className="relative">
+            <input
+              type={show ? 'text' : 'password'}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              data-testid="guild-bot-api-key-input"
+              autoComplete="off"
+              spellCheck={false}
+              className="w-full px-3 py-2 pr-10 bg-discord-dark border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-discord-blurple"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShow(v => !v)}
+              aria-label={show ? 'Hide API key' : 'Show API key'}
+              className="absolute inset-y-0 right-0 px-2 flex items-center text-gray-400 hover:text-gray-200"
+            >
+              {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </label>
+        <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={submitting}
+            className="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-gray-700 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            data-testid="guild-bot-api-key-submit"
+            disabled={submitting}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-discord-blurple hover:bg-blue-600 text-white font-medium transition disabled:opacity-50"
+          >
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 interface BotCardProps {
   entry: GuildBotEntry;
   guildId: string;
   onUpdate: (botId: string, patch: Partial<GuildBotSettings>) => Promise<void>;
+  onRotateApiKey: (botId: string, newApiKey: string | null) => Promise<unknown>;
 }
 
-function BotCard({ entry, guildId, onUpdate }: BotCardProps) {
+function BotCard({ entry, guildId, onUpdate, onRotateApiKey }: BotCardProps) {
   const { bot, settings, presentInGuild } = entry;
   const [expanded, setExpanded] = useState(false);
   const [savingToggle, setSavingToggle] = useState(false);
   const [savingOverrides, setSavingOverrides] = useState(false);
+  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
+  const [clearingApiKey, setClearingApiKey] = useState(false);
 
   const baseline = useMemo(() => settingsToForm(settings), [settings]);
   const [form, setForm] = useState<OverrideFormState>(baseline);
@@ -152,6 +329,7 @@ function BotCard({ entry, guildId, onUpdate }: BotCardProps) {
 
   const dirty = !formsEqual(form, baseline);
   const enabled = !!settings?.enabled;
+  const hasApiKeyOverride = !!settings?.hasApiKeyOverride;
 
   const handleToggle = async () => {
     if (!presentInGuild) return;
@@ -168,6 +346,14 @@ function BotCard({ entry, guildId, onUpdate }: BotCardProps) {
   };
 
   const handleSaveOverrides = async () => {
+    if (isInvalidIntOverride(form.aiMaxTokensOverride)) {
+      toast.error('Max tokens override must be an integer');
+      return;
+    }
+    if (isInvalidIntOverride(form.aiContextMessagesOverride)) {
+      toast.error('Context messages override must be an integer');
+      return;
+    }
     setSavingOverrides(true);
     try {
       await onUpdate(bot.id, formToPatch(form));
@@ -183,6 +369,30 @@ function BotCard({ entry, guildId, onUpdate }: BotCardProps) {
   const handleRevert = () => {
     setForm(baseline);
     toast.success('Changes reverted');
+  };
+
+  const handleSaveApiKey = async (newApiKey: string) => {
+    await onRotateApiKey(bot.id, newApiKey);
+    toast.success(hasApiKeyOverride ? 'API key override rotated' : 'API key override set');
+    setApiKeyModalOpen(false);
+  };
+
+  const handleClearApiKey = async () => {
+    if (clearingApiKey) return;
+    const ok = window.confirm(
+      "Clear this server's API key override? The bot will fall back to the global key."
+    );
+    if (!ok) return;
+    setClearingApiKey(true);
+    try {
+      await onRotateApiKey(bot.id, null);
+      toast.success('API key override cleared');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } }; message?: string };
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to clear API key override');
+    } finally {
+      setClearingApiKey(false);
+    }
   };
 
   const inviteUrl = buildInviteUrl(bot.discordAppId, guildId);
@@ -283,10 +493,65 @@ function BotCard({ entry, guildId, onUpdate }: BotCardProps) {
           className="px-4 py-4 border-t border-gray-700 bg-discord-gray/30 space-y-5"
         >
           <div className="space-y-4">
-            <h5 className="text-sm font-semibold text-white">Per-guild overrides</h5>
-            <p className="text-xs text-gray-400 -mt-3">
-              Leave fields blank to inherit the bot's global default.
-            </p>
+            <div>
+              <h5 className="text-sm font-semibold text-white">Per-server overrides</h5>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Leave any field blank to inherit the global setting.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>AI base URL override</label>
+                <input
+                  type="text"
+                  value={form.aiBaseUrlOverride}
+                  onChange={e => setForm(f => ({ ...f, aiBaseUrlOverride: e.target.value }))}
+                  placeholder="(inherit global)"
+                  className={inputCls}
+                  data-testid={`bot-override-base-url-${bot.id}`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>AI model override</label>
+                <input
+                  type="text"
+                  value={form.aiModelOverride}
+                  onChange={e => setForm(f => ({ ...f, aiModelOverride: e.target.value }))}
+                  placeholder="(inherit global)"
+                  className={inputCls}
+                  data-testid={`bot-override-model-${bot.id}`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Max tokens override</label>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={form.aiMaxTokensOverride}
+                  onChange={e => setForm(f => ({ ...f, aiMaxTokensOverride: e.target.value }))}
+                  placeholder="(inherit global)"
+                  className={inputCls}
+                  data-testid={`bot-override-max-tokens-${bot.id}`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Context messages override</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={form.aiContextMessagesOverride}
+                  onChange={e =>
+                    setForm(f => ({ ...f, aiContextMessagesOverride: e.target.value }))
+                  }
+                  placeholder="(inherit global)"
+                  className={inputCls}
+                  data-testid={`bot-override-context-${bot.id}`}
+                />
+              </div>
+            </div>
 
             <div>
               <label className={labelCls}>Personality override</label>
@@ -294,9 +559,84 @@ function BotCard({ entry, guildId, onUpdate }: BotCardProps) {
                 rows={3}
                 value={form.personalityOverride}
                 onChange={e => setForm(f => ({ ...f, personalityOverride: e.target.value }))}
-                placeholder="(inherit global personality)"
+                placeholder="(inherit global)"
                 className={inputCls}
               />
+            </div>
+
+            <div
+              className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 bg-discord-dark rounded-lg border border-gray-700"
+              data-testid={`bot-api-key-row-${bot.id}`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {hasApiKeyOverride ? (
+                  <ShieldCheck className="h-4 w-4 text-green-400 shrink-0" />
+                ) : (
+                  <ShieldAlert className="h-4 w-4 text-gray-400 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  {hasApiKeyOverride ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-white">API key override:</span>
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono uppercase tracking-wide bg-green-900/40 text-green-300 border border-green-700/50"
+                        data-testid={`bot-api-key-status-${bot.id}`}
+                      >
+                        Set
+                      </span>
+                    </div>
+                  ) : (
+                    <span
+                      className="text-sm text-gray-300"
+                      data-testid={`bot-api-key-status-${bot.id}`}
+                    >
+                      Using global bot API key
+                    </span>
+                  )}
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Stored encrypted. Never shown after save.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {hasApiKeyOverride ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setApiKeyModalOpen(true)}
+                      disabled={clearingApiKey}
+                      data-testid={`bot-api-key-rotate-${bot.id}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-discord-blurple hover:bg-discord-blurple-dark text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Rotate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearApiKey}
+                      disabled={clearingApiKey}
+                      data-testid={`bot-api-key-clear-${bot.id}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-red-700/60 text-red-300 hover:bg-red-900/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {clearingApiKey ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : null}
+                      {clearingApiKey ? 'Clearing…' : 'Clear'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setApiKeyModalOpen(true)}
+                    data-testid={`bot-api-key-set-${bot.id}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-discord-blurple hover:bg-discord-blurple-dark text-white transition"
+                  >
+                    <KeyRound className="h-3.5 w-3.5" />
+                    Set override
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -487,12 +827,24 @@ function BotCard({ entry, guildId, onUpdate }: BotCardProps) {
           </div>
         </div>
       )}
+
+      <ApiKeyOverrideModal
+        open={apiKeyModalOpen}
+        botName={bot.name}
+        alreadySet={hasApiKeyOverride}
+        onClose={() => setApiKeyModalOpen(false)}
+        onSave={handleSaveApiKey}
+      />
     </div>
   );
 }
 
 export default function GuildBotsConfigForm({ guildId }: GuildBotsConfigFormProps) {
-  const { items, loading, error, updateBot } = useGuildBots(guildId);
+  const { items, loading, error, updateBot, rotateApiKey } = useGuildBots(guildId);
+
+  const handleRotateApiKey = async (botId: string, newApiKey: string | null) => {
+    return rotateApiKey(botId, newApiKey);
+  };
 
   const botsLite: BotLite[] = useMemo(
     () =>
@@ -542,6 +894,7 @@ export default function GuildBotsConfigForm({ guildId }: GuildBotsConfigFormProp
               entry={entry}
               guildId={guildId}
               onUpdate={updateBot}
+              onRotateApiKey={handleRotateApiKey}
             />
           ))}
         </div>

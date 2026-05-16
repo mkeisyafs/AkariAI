@@ -1,4 +1,5 @@
 import prisma from '../prisma.js';
+import { decrypt } from '../../utils/encryption.js';
 
 const botPublicSelect = {
   id: true,
@@ -10,12 +11,30 @@ const botPublicSelect = {
   aiPersonality: true,
   aiMaxTokens: true,
   aiContextMessages: true,
+  encryptedApiKey: true,
   status: true,
 };
 
 const DEFAULT_RESPONSE_CHANCE = 100;
 const DEFAULT_COOLDOWN_MS = 3000;
 const DEFAULT_REPLY_ONLY_MODE = false;
+
+function tryDecrypt(value, label) {
+  if (!value) return null;
+  try {
+    return decrypt(value);
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        event: 'guildBotSettings.decrypt.failed',
+        label,
+        error: err && err.message ? err.message : String(err),
+      })
+    );
+    return null;
+  }
+}
 
 export default {
   async getForGuild(guildId) {
@@ -63,6 +82,12 @@ export default {
 
     const { bot } = row;
 
+    const apiKeyOverrideDecrypted = tryDecrypt(
+      row.encryptedApiKeyOverride,
+      `guildBotSettings:${guildId}:${botId}`
+    );
+    const apiKeyGlobalDecrypted = tryDecrypt(bot.encryptedApiKey, `bot:${bot.id}`);
+
     return {
       botId: bot.id,
       guildId: row.guildId,
@@ -71,11 +96,12 @@ export default {
       discordAppId: bot.discordAppId,
       discordBotUserId: bot.discordBotUserId,
 
-      aiBaseUrl: bot.aiBaseUrl,
-      aiModel: bot.aiModel,
+      aiBaseUrl: row.aiBaseUrlOverride ?? bot.aiBaseUrl,
+      aiModel: row.aiModelOverride ?? bot.aiModel,
       aiPersonality: row.personalityOverride ?? bot.aiPersonality,
-      aiMaxTokens: bot.aiMaxTokens,
-      aiContextMessages: bot.aiContextMessages,
+      aiMaxTokens: row.aiMaxTokensOverride ?? bot.aiMaxTokens,
+      aiContextMessages: row.aiContextMessagesOverride ?? bot.aiContextMessages,
+      aiApiKey: apiKeyOverrideDecrypted ?? apiKeyGlobalDecrypted,
 
       enabled: row.enabled,
       responseChance: row.responseChance ?? DEFAULT_RESPONSE_CHANCE,

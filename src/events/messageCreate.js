@@ -127,8 +127,6 @@ export default {
 
       skipGating = true;
     } else if (isOurBot) {
-      if (!effective.botToBotEnabled) return;
-
       const weAreMentioned = message.mentions.has(client.user);
 
       const forcedReplyConsumed = consumeForcedReplyTicket(
@@ -145,6 +143,7 @@ export default {
         shouldReply = true;
         logger.info('msg.mention.bypass', { botId, guildId, channelId, senderBotId });
       } else {
+        if (!effective.botToBotEnabled) return;
         const chance = await botPairChanceRepository.getPairChance(guildId, senderBotId, botId);
         if (!chance || chance <= 0) {
           logger.debug('msg.pair.roll', {

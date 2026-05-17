@@ -98,6 +98,7 @@ export default {
 
     let shouldReply = false;
     let skipGating = false;
+    let bypassChainAndCooldown = false;
 
     if (isHuman) {
       const isMentioned = message.mentions.has(client.user);
@@ -138,9 +139,11 @@ export default {
 
       if (forcedReplyConsumed) {
         shouldReply = true;
+        bypassChainAndCooldown = true;
         logger.info('msg.forced.reply', { botId, guildId, channelId, senderBotId });
       } else if (weAreMentioned && effective.mentionBypassMatrix) {
         shouldReply = true;
+        bypassChainAndCooldown = true;
         logger.info('msg.mention.bypass', { botId, guildId, channelId, senderBotId });
       } else {
         if (!effective.botToBotEnabled) return;
@@ -174,8 +177,8 @@ export default {
     }
 
     const guardCfg = {
-      maxChainDepth: effective.maxChainDepth ?? 3,
-      channelCooldownMs: effective.channelCooldownMs ?? 5000,
+      maxChainDepth: effective.maxChainDepth ?? 10,
+      channelCooldownMs: effective.channelCooldownMs ?? 1500,
       circuitBreakerCount: effective.circuitBreakerCount ?? 10,
       circuitBreakerWindowMs: effective.circuitBreakerWindowMs ?? 60000,
       circuitBreakerPauseMs: effective.circuitBreakerPauseMs ?? 300000,
@@ -184,7 +187,7 @@ export default {
       guildId,
       channelId,
       guardCfg,
-      { isHumanInitiated: skipGating }
+      { isHumanInitiated: skipGating, bypassChainAndCooldown }
     );
     if (!reservation.ok) {
       logger.info('msg.refused', {

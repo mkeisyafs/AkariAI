@@ -214,8 +214,8 @@ model GuildBotSettings {
 
   // Inter-bot conversation settings
   botToBotEnabled        Boolean @default(false)
-  maxChainDepth          Int     @default(3)
-  channelCooldownMs      Int     @default(5000)
+  maxChainDepth          Int     @default(10)
+  channelCooldownMs      Int     @default(1500)
   circuitBreakerCount    Int     @default(10)
   circuitBreakerWindowMs Int     @default(60000)
   circuitBreakerPauseMs  Int     @default(300000)

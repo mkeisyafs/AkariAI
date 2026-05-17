@@ -78,9 +78,9 @@ function registerBotReply(guildId, channelId) {
 
 function tryReserveBotReply(guildId, channelId, config, options = {}) {
   const isHumanInitiated = options.isHumanInitiated === true;
+  const bypassChainAndCooldown = options.bypassChainAndCooldown === true;
   const state = getOrCreate(guildId, channelId);
 
-  // Concurrency guard — enforced even on the human-initiated path.
   if (state.reservedBy !== null) {
     return { ok: false, reason: 'RESERVED' };
   }
@@ -92,12 +92,14 @@ function tryReserveBotReply(guildId, channelId, config, options = {}) {
       return { ok: false, reason: 'CIRCUIT_BREAKER' };
     }
 
-    if (state.chainDepth >= config.maxChainDepth) {
-      return { ok: false, reason: 'CHAIN_DEPTH' };
-    }
+    if (!bypassChainAndCooldown) {
+      if (state.chainDepth >= config.maxChainDepth) {
+        return { ok: false, reason: 'CHAIN_DEPTH' };
+      }
 
-    if (t - state.lastBotReplyAt < config.channelCooldownMs) {
-      return { ok: false, reason: 'COOLDOWN' };
+      if (t - state.lastBotReplyAt < config.channelCooldownMs) {
+        return { ok: false, reason: 'COOLDOWN' };
+      }
     }
 
     pruneOldTimestamps(state, config.circuitBreakerWindowMs);

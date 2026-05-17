@@ -10,6 +10,7 @@ import { getCooldown, setCooldown } from '../services/botCooldowns.js';
 import botManager from '../services/botManager.js';
 import loopGuard from '../services/loopGuard.js';
 import { consumeForcedReplyTicket } from '../services/forcedReplyTickets.js';
+import { isChannelMuted } from '../services/channelMutes.js';
 import { logger } from '../utils/logger.js';
 
 export default {
@@ -128,6 +129,11 @@ export default {
 
       skipGating = true;
     } else if (isOurBot) {
+      if (isChannelMuted(guildId, channelId)) {
+        logger.info('msg.muted.skip', { botId, guildId, channelId, senderBotId });
+        return;
+      }
+
       const weAreMentioned = message.mentions.has(client.user);
 
       const forcedReplyConsumed = consumeForcedReplyTicket(
@@ -143,7 +149,6 @@ export default {
         logger.info('msg.forced.reply', { botId, guildId, channelId, senderBotId });
       } else if (weAreMentioned && effective.mentionBypassMatrix) {
         shouldReply = true;
-        bypassChainAndCooldown = true;
         logger.info('msg.mention.bypass', { botId, guildId, channelId, senderBotId });
       } else {
         if (!effective.botToBotEnabled) return;

@@ -102,6 +102,13 @@ export default {
       const isMentioned = message.mentions.has(client.user);
       const isReply = Boolean(message.reference) && message.type === 19;
 
+      const mentionedAnotherOfOurBots = message.mentions.users.some(
+        (u) => u.id !== client.user.id && botManager.isOurBot(u.id)
+      );
+      if (mentionedAnotherOfOurBots && !isMentioned) {
+        return;
+      }
+
       if (effective.replyOnlyMode) {
         shouldReply = isMentioned || isReply;
       } else {

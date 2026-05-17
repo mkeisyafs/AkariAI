@@ -9,11 +9,35 @@ export default {
   async execute(client, botId, interaction) {
     if (interaction.isChatInputCommand()) {
       await handleCommand(interaction, botId);
+    } else if (interaction.isAutocomplete()) {
+      await handleAutocomplete(interaction, botId);
     } else if (interaction.isButton()) {
       await handleButton(interaction);
     }
   },
 };
+
+async function handleAutocomplete(interaction, botId) {
+  const command = getBotCommands(botId).get(interaction.commandName);
+  if (!command || typeof command.autocomplete !== 'function') {
+    try {
+      await interaction.respond([]);
+    } catch {
+      void 0;
+    }
+    return;
+  }
+  try {
+    await command.autocomplete(interaction, botId);
+  } catch (error) {
+    console.error(`Autocomplete error for ${interaction.commandName}:`, error);
+    try {
+      await interaction.respond([]);
+    } catch {
+      void 0;
+    }
+  }
+}
 
 async function handleCommand(interaction, botId) {
   const command = getBotCommands(botId).get(interaction.commandName);

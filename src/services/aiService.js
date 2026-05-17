@@ -169,6 +169,76 @@ export async function generateAIResponseWithKnowledge(userMessage, config, conte
   return generateAIResponse(userMessage, config, { ...context, knowledgeContext });
 }
 
+export async function generateOpener(config, { botId, targetBotName, topic }) {
+  if (!targetBotName) throw new Error('generateOpener: targetBotName is required');
+  if (!topic || typeof topic !== 'string' || !topic.trim()) {
+    throw new Error('generateOpener: topic is required');
+  }
+
+  try {
+    let systemContent = config.aiPersonality;
+
+    const relationshipContext = await buildRelationshipContext(config.guildId, botId);
+    if (relationshipContext) systemContent += '\n\n' + relationshipContext;
+
+    const allKnowledge = await knowledgeService.getAllKnowledge(config.guildId, botId);
+    const knowledgeContext = knowledgeService.buildKnowledgeContext(allKnowledge);
+    if (knowledgeContext) systemContent += '\n\n' + knowledgeContext;
+
+    systemContent +=
+      `\n\nYou are about to speak to ${targetBotName} in a public channel. ` +
+      `Open the conversation in 1-2 short sentences. Stay in character. ` +
+      `Address ${targetBotName} naturally; you may use their name. ` +
+      `Do not narrate stage directions or explain yourself. Topic: ${topic.trim()}`;
+
+    if (!config.aiApiKey || !config.aiBaseUrl || !config.aiModel) {
+      console.error(
+        `generateOpener: bot is missing aiApiKey/aiBaseUrl/aiModel (botId=${botId}).`
+      );
+      return null;
+    }
+
+    const response = await axios.post(
+      `${config.aiBaseUrl}/chat/completions`,
+      {
+        model: config.aiModel,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: `Open the conversation about: ${topic.trim()}` },
+        ],
+        max_tokens: Math.min(config.aiMaxTokens || 1000, 400),
+        temperature: 0.9,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.aiApiKey}`,
+        },
+        timeout: 30000,
+      }
+    );
+
+    const text = response.data?.choices?.[0]?.message?.content;
+    if (typeof text !== 'string' || text.trim().length === 0) {
+      console.error(
+        `generateOpener: provider returned no content (botId=${botId}). Body: ${JSON.stringify(response.data).slice(0, 500)}`
+      );
+      return null;
+    }
+    return text.trim();
+  } catch (error) {
+    const status = error.response?.status;
+    const body = error.response?.data;
+    const detail = body
+      ? JSON.stringify(body).slice(0, 500)
+      : error.message || String(error);
+    console.error(
+      `generateOpener AI API Error: ${status ? `HTTP ${status} ` : ''}botId=${botId} — ${detail}`
+    );
+    return null;
+  }
+}
+
 export async function clearChannelContext(botId, channelId) {
   return await conversationHistoryRepository.clearChannelHistory(botId, channelId);
 }

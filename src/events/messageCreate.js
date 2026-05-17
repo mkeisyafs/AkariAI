@@ -9,6 +9,7 @@ import { checkToxicity } from '../services/moderationService.js';
 import { getCooldown, setCooldown } from '../services/botCooldowns.js';
 import botManager from '../services/botManager.js';
 import loopGuard from '../services/loopGuard.js';
+import { consumeForcedReplyTicket } from '../services/forcedReplyTickets.js';
 import { logger } from '../utils/logger.js';
 
 export default {
@@ -130,8 +131,17 @@ export default {
 
       const weAreMentioned = message.mentions.has(client.user);
 
-      if (weAreMentioned && effective.mentionBypassMatrix) {
-        // Explicit @mention bypasses pair-chance but still respects loopGuard gates.
+      const forcedReplyConsumed = consumeForcedReplyTicket(
+        guildId,
+        channelId,
+        botId,
+        senderBotId
+      );
+
+      if (forcedReplyConsumed) {
+        shouldReply = true;
+        logger.info('msg.forced.reply', { botId, guildId, channelId, senderBotId });
+      } else if (weAreMentioned && effective.mentionBypassMatrix) {
         shouldReply = true;
         logger.info('msg.mention.bypass', { botId, guildId, channelId, senderBotId });
       } else {

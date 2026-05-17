@@ -187,7 +187,7 @@ export default {
       guildId,
       channelId,
       guardCfg,
-      { isHumanInitiated: skipGating, bypassChainAndCooldown }
+      { isHumanInitiated: skipGating, bypassChainAndCooldown, listenerBotId: botId }
     );
     if (!reservation.ok) {
       logger.info('msg.refused', {

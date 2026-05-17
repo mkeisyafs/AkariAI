@@ -35,7 +35,7 @@ function getOrCreate(guildId, channelId) {
       lastBotReplyAt: 0,
       botReplyTimestamps: [],
       breakerLockedUntil: 0,
-      reservedBy: null,
+      reservedBy: new Map(),
       updatedAt: now(),
     };
     channelStates.set(key, state);
@@ -79,9 +79,10 @@ function registerBotReply(guildId, channelId) {
 function tryReserveBotReply(guildId, channelId, config, options = {}) {
   const isHumanInitiated = options.isHumanInitiated === true;
   const bypassChainAndCooldown = options.bypassChainAndCooldown === true;
+  const listenerBotId = typeof options.listenerBotId === 'string' ? options.listenerBotId : '_global';
   const state = getOrCreate(guildId, channelId);
 
-  if (state.reservedBy !== null) {
+  if (state.reservedBy.has(listenerBotId)) {
     return { ok: false, reason: 'RESERVED' };
   }
 
@@ -111,25 +112,25 @@ function tryReserveBotReply(guildId, channelId, config, options = {}) {
   }
 
   const uuid = randomUUID();
-  state.reservedBy = uuid;
+  state.reservedBy.set(listenerBotId, uuid);
   state.updatedAt = now();
 
   return {
     ok: true,
     reservationId: uuid,
     commit() {
-      if (state.reservedBy === uuid) {
+      if (state.reservedBy.get(listenerBotId) === uuid) {
         const t = now();
         state.chainDepth += 1;
         state.botReplyTimestamps.push(t);
         state.lastBotReplyAt = t;
         state.updatedAt = t;
-        state.reservedBy = null;
+        state.reservedBy.delete(listenerBotId);
       }
     },
     release() {
-      if (state.reservedBy === uuid) {
-        state.reservedBy = null;
+      if (state.reservedBy.get(listenerBotId) === uuid) {
+        state.reservedBy.delete(listenerBotId);
         state.updatedAt = now();
       }
     },
@@ -144,7 +145,7 @@ function getChannelState(guildId, channelId) {
     lastBotReplyAt: state.lastBotReplyAt,
     botReplyTimestamps: state.botReplyTimestamps.slice(),
     breakerLockedUntil: state.breakerLockedUntil,
-    reservedBy: state.reservedBy,
+    reservedBy: Array.from(state.reservedBy.keys()),
     updatedAt: state.updatedAt,
   };
 }

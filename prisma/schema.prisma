@@ -289,3 +289,20 @@ model BotRelationship {
   @@index([guildId, fromBotId])
   @@index([guildId])
 }
+
+model IdleChatterConfig {
+  id             String   @id @default(cuid())
+  guildId        String
+  botId          String
+  channelId      String
+  enabled        Boolean  @default(true)
+  idleMinutes    Int      @default(30)
+  maxPerHour     Int      @default(2)
+  topicHint      String   @default("") @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([guildId, botId, channelId])
+  @@index([guildId, channelId])
+  @@index([botId])
+}

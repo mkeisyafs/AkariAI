@@ -242,3 +242,73 @@ export async function generateOpener(config, { botId, targetBotName, topic }) {
 export async function clearChannelContext(botId, channelId) {
   return await conversationHistoryRepository.clearChannelHistory(botId, channelId);
 }
+
+export async function generateIdleMessage(config, { botId, topicHint }) {
+  try {
+    let systemContent = config.aiPersonality;
+
+    const relationshipContext = await buildRelationshipContext(config.guildId, botId);
+    if (relationshipContext) systemContent += '\n\n' + relationshipContext;
+
+    const allKnowledge = await knowledgeService.getAllKnowledge(config.guildId, botId);
+    const knowledgeContext = knowledgeService.buildKnowledgeContext(allKnowledge);
+    if (knowledgeContext) systemContent += '\n\n' + knowledgeContext;
+
+    const hint = typeof topicHint === 'string' && topicHint.trim().length > 0
+      ? topicHint.trim()
+      : null;
+
+    systemContent +=
+      `\n\nThe channel has been quiet. Post ONE short, in-character message (1-2 sentences) ` +
+      `to break the silence naturally. Do not greet anyone by name, do not ask questions ` +
+      `that require a specific reply, do not mention being an AI, do not narrate stage ` +
+      `directions. Just say something a real character would idly say.` +
+      (hint ? ` Theme/mood hint: ${hint}` : '');
+
+    if (!config.aiApiKey || !config.aiBaseUrl || !config.aiModel) {
+      console.error(
+        `generateIdleMessage: bot is missing aiApiKey/aiBaseUrl/aiModel (botId=${botId}).`
+      );
+      return null;
+    }
+
+    const response = await axios.post(
+      `${config.aiBaseUrl}/chat/completions`,
+      {
+        model: config.aiModel,
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: 'Say something idle, in character.' },
+        ],
+        max_tokens: Math.min(config.aiMaxTokens || 1000, 250),
+        temperature: 0.95,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.aiApiKey}`,
+        },
+        timeout: 30000,
+      }
+    );
+
+    const text = response.data?.choices?.[0]?.message?.content;
+    if (typeof text !== 'string' || text.trim().length === 0) {
+      console.error(
+        `generateIdleMessage: provider returned no content (botId=${botId}). Body: ${JSON.stringify(response.data).slice(0, 500)}`
+      );
+      return null;
+    }
+    return text.trim();
+  } catch (error) {
+    const status = error.response?.status;
+    const body = error.response?.data;
+    const detail = body
+      ? JSON.stringify(body).slice(0, 500)
+      : error.message || String(error);
+    console.error(
+      `generateIdleMessage AI API Error: ${status ? `HTTP ${status} ` : ''}botId=${botId} — ${detail}`
+    );
+    return null;
+  }
+}

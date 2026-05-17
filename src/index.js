@@ -96,6 +96,9 @@ async function startBot() {
 
   startWebServer(botManager);
   logger.info('web.started');
+
+  const { startIdleChatterScheduler } = await import('./services/idleChatterScheduler.js');
+  startIdleChatterScheduler();
 }
 
 async function shutdown(signal) {

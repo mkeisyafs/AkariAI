@@ -11,6 +11,7 @@ import botManager from '../services/botManager.js';
 import loopGuard from '../services/loopGuard.js';
 import { consumeForcedReplyTicket } from '../services/forcedReplyTickets.js';
 import { isChannelMuted } from '../services/channelMutes.js';
+import { markActive } from '../services/channelActivityTracker.js';
 import { logger } from '../utils/logger.js';
 
 export default {
@@ -22,6 +23,8 @@ export default {
 
     const guildId = message.guild.id;
     const channelId = message.channel.id;
+
+    markActive(guildId, channelId);
 
     const effective = await guildBotSettingsRepository.resolveEffectiveConfig(guildId, botId);
     if (!effective || !effective.enabled) return;
